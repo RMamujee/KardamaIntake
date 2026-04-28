@@ -129,8 +129,9 @@ async function sendOwnerEmail(form: FormData): Promise<void> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: `${businessName} Intake <intake@kardama.ai>`,
+      from: `${businessName} Intake <onboarding@resend.dev>`,
       to: ownerEmail,
+      reply_to: form.email,
       subject: `New cleaning request — ${form.full_name}`,
       html,
     }),
