@@ -9,7 +9,7 @@ const BUSINESS_NAME = 'YOUR_BUSINESS'
 const STORAGE_KEY = 'kardama_intake_draft'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const TIMES = ['Morning (8am–12pm)', 'Afternoon (12pm–5pm)', 'Evening (5pm–8pm)']
+const TIMES = ['8:00am – 10:00am', '10:00am – 12:00pm', '12:00pm – 2:00pm', '2:00pm – 4:00pm', '4:00pm – 6:00pm']
 const HOME_SIZES = ['Studio', '1 Bedroom', '2 Bedrooms', '3 Bedrooms', '4+ Bedrooms', 'Commercial']
 const FREQUENCIES = ['One-time', 'Weekly', 'Bi-weekly', 'Monthly']
 const STEPS = ['About You', 'Your Schedule', 'Final Details']
@@ -126,8 +126,8 @@ function Step2({ form, set, toggleArray }) {
       </div>
 
       <div>
-        <p className={label}>Preferred Time of Day *</p>
-        <p className="text-xs text-gray-400 mb-3">Select all that apply</p>
+        <p className={label}>Preferred Arrival Window *</p>
+        <p className="text-xs text-gray-400 mb-3">Select all that work for you</p>
         <div className="space-y-2">
           {TIMES.map(time => (
             <button
