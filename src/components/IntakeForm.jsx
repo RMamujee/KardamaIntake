@@ -5,9 +5,10 @@ import SuccessScreen from './SuccessScreen'
 // Set to false once Supabase is connected
 const MOCK = true
 
+const BUSINESS_NAME = 'YOUR_BUSINESS'
+
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const TIMES = ['Morning (8am–12pm)', 'Afternoon (12pm–5pm)', 'Evening (5pm–8pm)']
-const EXPERIENCE = ['Less than 1 year', '1–2 years', '3–5 years', '5+ years']
 const HOME_SIZES = ['Studio', '1 Bedroom', '2 Bedrooms', '3 Bedrooms', '4+ Bedrooms', 'Commercial']
 const FREQUENCIES = ['One-time', 'Weekly', 'Bi-weekly', 'Monthly']
 const STEPS = ['About You', 'Your Schedule', 'Final Details']
@@ -18,29 +19,6 @@ const label = "block text-sm font-medium text-gray-700 mb-1.5"
 function Step1({ form, set }) {
   return (
     <div className="space-y-5">
-      <div>
-        <p className={label}>I am signing up as a *</p>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { val: 'cleaner', icon: '🧹', text: 'Cleaner' },
-            { val: 'customer', icon: '🏠', text: 'Customer' },
-          ].map(({ val, icon, text }) => (
-            <button
-              key={val}
-              type="button"
-              onClick={() => set('type', val)}
-              className={`p-4 rounded-xl border-2 font-medium transition-all ${
-                form.type === val
-                  ? 'border-teal-500 bg-teal-50 text-teal-700'
-                  : 'border-gray-200 text-gray-600 hover:border-teal-300 hover:bg-gray-50'
-              }`}
-            >
-              {icon} {text}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div>
         <label className={label}>Full Name *</label>
         <input
@@ -141,93 +119,53 @@ function Step2({ form, toggleArray }) {
 }
 
 function Step3({ form, set }) {
-  const isCleaner = form.type === 'cleaner'
-
   return (
     <div className="space-y-5">
-      {isCleaner ? (
-        <>
-          <div>
-            <p className={label}>Do you have your own transportation? *</p>
-            <div className="grid grid-cols-2 gap-3">
-              {['Yes', 'No'].map(val => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => set('has_transportation', val)}
-                  className={`p-3 rounded-xl border-2 font-medium transition-all ${
-                    form.has_transportation === val
-                      ? 'border-teal-500 bg-teal-50 text-teal-700'
-                      : 'border-gray-200 text-gray-600 hover:border-teal-300'
-                  }`}
-                >
-                  {val}
-                </button>
-              ))}
-            </div>
-          </div>
+      <div>
+        <label className={label}>Service Address *</label>
+        <input
+          type="text"
+          value={form.service_address}
+          onChange={e => set('service_address', e.target.value)}
+          placeholder="123 Main St, Chicago, IL 60601"
+          className={input}
+        />
+      </div>
 
-          <div>
-            <label className={label}>Years of cleaning experience? *</label>
-            <select
-              value={form.years_experience}
-              onChange={e => set('years_experience', e.target.value)}
-              className={input + " appearance-none cursor-pointer"}
-            >
-              <option value="">Select experience level</option>
-              {EXPERIENCE.map(e => <option key={e} value={e}>{e}</option>)}
-            </select>
-          </div>
-        </>
-      ) : (
-        <>
-          <div>
-            <label className={label}>Service Address *</label>
-            <input
-              type="text"
-              value={form.service_address}
-              onChange={e => set('service_address', e.target.value)}
-              placeholder="123 Main St, Chicago, IL 60601"
-              className={input}
-            />
-          </div>
+      <div>
+        <label className={label}>Home Size *</label>
+        <select
+          value={form.home_size}
+          onChange={e => set('home_size', e.target.value)}
+          className={input + " appearance-none cursor-pointer"}
+        >
+          <option value="">Select home size</option>
+          {HOME_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
 
-          <div>
-            <label className={label}>Home Size *</label>
-            <select
-              value={form.home_size}
-              onChange={e => set('home_size', e.target.value)}
-              className={input + " appearance-none cursor-pointer"}
-            >
-              <option value="">Select home size</option>
-              {HOME_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
+      <div>
+        <label className={label}>How often do you need cleaning? *</label>
+        <select
+          value={form.cleaning_frequency}
+          onChange={e => set('cleaning_frequency', e.target.value)}
+          className={input + " appearance-none cursor-pointer"}
+        >
+          <option value="">Select frequency</option>
+          {FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+      </div>
 
-          <div>
-            <label className={label}>How often do you need cleaning? *</label>
-            <select
-              value={form.cleaning_frequency}
-              onChange={e => set('cleaning_frequency', e.target.value)}
-              className={input + " appearance-none cursor-pointer"}
-            >
-              <option value="">Select frequency</option>
-              {FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className={label}>Pets or allergies we should know about?</label>
-            <input
-              type="text"
-              value={form.has_pets_allergies}
-              onChange={e => set('has_pets_allergies', e.target.value)}
-              placeholder="e.g. 2 cats, allergic to bleach"
-              className={input}
-            />
-          </div>
-        </>
-      )}
+      <div>
+        <label className={label}>Pets or allergies we should know about?</label>
+        <input
+          type="text"
+          value={form.has_pets_allergies}
+          onChange={e => set('has_pets_allergies', e.target.value)}
+          placeholder="e.g. 2 cats, allergic to bleach"
+          className={input}
+        />
+      </div>
 
       <div>
         <label className={label}>Additional notes or special requests</label>
@@ -250,15 +188,13 @@ export default function IntakeForm() {
   const [error, setError] = useState('')
 
   const [form, setFormState] = useState({
-    type: '',
+    type: 'customer',
     full_name: '',
     email: '',
     phone: '',
     city_zip: '',
     preferred_days: [],
     preferred_times: [],
-    has_transportation: '',
-    years_experience: '',
     service_address: '',
     home_size: '',
     cleaning_frequency: '',
@@ -276,7 +212,6 @@ export default function IntakeForm() {
 
   const validate = (s) => {
     if (s === 0) {
-      if (!form.type) return 'Please select if you are a Cleaner or Customer.'
       if (!form.full_name.trim()) return 'Full name is required.'
       if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
         return 'A valid email address is required.'
@@ -288,15 +223,9 @@ export default function IntakeForm() {
       if (form.preferred_times.length === 0) return 'Please select at least one preferred time.'
     }
     if (s === 2) {
-      if (form.type === 'cleaner') {
-        if (!form.has_transportation) return 'Please indicate if you have your own transportation.'
-        if (!form.years_experience) return 'Please select your years of experience.'
-      }
-      if (form.type === 'customer') {
-        if (!form.service_address.trim()) return 'Service address is required.'
-        if (!form.home_size) return 'Please select your home size.'
-        if (!form.cleaning_frequency) return 'Please select a cleaning frequency.'
-      }
+      if (!form.service_address.trim()) return 'Service address is required.'
+      if (!form.home_size) return 'Please select your home size.'
+      if (!form.cleaning_frequency) return 'Please select a cleaning frequency.'
     }
     return null
   }
@@ -333,7 +262,7 @@ export default function IntakeForm() {
     }
   }
 
-  if (submitted) return <SuccessScreen type={form.type} name={form.full_name} />
+  if (submitted) return <SuccessScreen name={form.full_name} businessName={BUSINESS_NAME} />
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 flex items-center justify-center p-4">
@@ -344,8 +273,8 @@ export default function IntakeForm() {
           <div className="inline-flex items-center justify-center w-14 h-14 bg-teal-600 rounded-2xl mb-4 shadow-lg">
             <span className="text-2xl">✨</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Kardama Cleaning</h1>
-          <p className="text-gray-500 mt-1">Join our community</p>
+          <h1 className="text-3xl font-bold text-gray-900">{BUSINESS_NAME}</h1>
+          <p className="text-gray-500 mt-1">Request a cleaning</p>
         </div>
 
         {/* Step Indicator */}
@@ -434,8 +363,11 @@ export default function IntakeForm() {
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          By submitting, you agree to be contacted by Kardama Cleaning.
+        <p className="text-center text-xs text-gray-400 mt-4">
+          By submitting, you agree to be contacted by {BUSINESS_NAME}.
+        </p>
+        <p className="text-center text-xs text-gray-300 mt-2">
+          Powered by <span className="font-medium text-teal-400">Kardama</span>
         </p>
       </div>
     </div>

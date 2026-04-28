@@ -1,4 +1,4 @@
-export default function SuccessScreen({ type, name }) {
+export default function SuccessScreen({ name, businessName }) {
   const firstName = name.split(' ')[0]
 
   return (
@@ -14,9 +14,7 @@ export default function SuccessScreen({ type, name }) {
             You're all set, {firstName}!
           </h2>
           <p className="text-gray-500 mb-6 leading-relaxed">
-            {type === 'cleaner'
-              ? "We've received your cleaner application. Our team will review it and reach out within 1–2 business days."
-              : "We've received your cleaning request. Our team will be in touch shortly to confirm your schedule."}
+            We've received your cleaning request. {businessName} will be in touch shortly to confirm your schedule.
           </p>
           <div className="p-4 bg-teal-50 rounded-2xl">
             <p className="text-teal-700 text-sm font-medium">
@@ -24,6 +22,9 @@ export default function SuccessScreen({ type, name }) {
             </p>
           </div>
         </div>
+        <p className="text-center text-xs text-gray-300 mt-6">
+          Powered by <span className="font-medium text-teal-400">Kardama</span>
+        </p>
       </div>
     </div>
   )
