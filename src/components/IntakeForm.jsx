@@ -3,8 +3,7 @@ import Autocomplete from 'react-google-autocomplete'
 import { supabase } from '../lib/supabase'
 import SuccessScreen from './SuccessScreen'
 
-// Set to false once Supabase is connected
-const MOCK = true
+const MOCK = false
 
 const BUSINESS_NAME = 'YOUR_BUSINESS'
 const STORAGE_KEY = 'kardama_intake_draft'
@@ -317,14 +316,22 @@ export default function IntakeForm() {
     setError('')
     setLoading(true)
     try {
-      if (MOCK) {
-        await new Promise(r => setTimeout(r, 1000))
-      } else {
-        const { error: fnError } = await supabase.functions.invoke('submit-intake', {
-          body: form,
-        })
-        if (fnError) throw fnError
-      }
+      const { error: dbError } = await supabase.from('intake_submissions').insert({
+        full_name: form.full_name,
+        email: form.email,
+        phone: form.phone,
+        city_zip: form.city_zip,
+        start_date: form.start_date,
+        preferred_days: form.preferred_days,
+        preferred_times: form.preferred_times,
+        service_address: form.service_address,
+        unit: form.unit || null,
+        home_size: form.home_size,
+        cleaning_frequency: form.cleaning_frequency,
+        has_pets_allergies: form.has_pets_allergies || null,
+        additional_notes: form.additional_notes || null,
+      })
+      if (dbError) throw dbError
       try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STORAGE_KEY + '_step') } catch {}
       setSubmitted(true)
     } catch (e) {
