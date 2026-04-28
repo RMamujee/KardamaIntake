@@ -94,24 +94,20 @@ function Step2({ form, toggleArray }) {
         <p className={label}>Preferred Time of Day *</p>
         <p className="text-xs text-gray-400 mb-3">Select all that apply</p>
         <div className="space-y-2">
-          {TIMES.map((time, i) => {
-            const icons = ['☀️', '🌤️', '🌙']
-            return (
-              <button
-                key={time}
-                type="button"
-                onClick={() => toggleArray('preferred_times', time)}
-                className={`w-full p-3 rounded-xl text-left text-sm font-medium transition-all flex items-center gap-2 ${
-                  form.preferred_times.includes(time)
-                    ? 'bg-teal-500 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                <span>{icons[i]}</span>
-                <span>{time}</span>
-              </button>
-            )
-          })}
+          {TIMES.map(time => (
+            <button
+              key={time}
+              type="button"
+              onClick={() => toggleArray('preferred_times', time)}
+              className={`w-full p-3 rounded-xl text-left text-sm font-medium transition-all ${
+                form.preferred_times.includes(time)
+                  ? 'bg-teal-500 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {time}
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -270,9 +266,6 @@ export default function IntakeForm() {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-teal-600 rounded-2xl mb-4 shadow-lg">
-            <span className="text-2xl">✨</span>
-          </div>
           <h1 className="text-3xl font-bold text-gray-900">{BUSINESS_NAME}</h1>
           <p className="text-gray-500 mt-1">Request a cleaning</p>
         </div>
@@ -289,11 +282,7 @@ export default function IntakeForm() {
                     ? 'bg-teal-500 text-white shadow-md ring-4 ring-teal-100'
                     : 'bg-gray-100 text-gray-400'
                 }`}>
-                  {i < step ? (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : i + 1}
+                  {i < step ? '✓' : i + 1}
                 </div>
                 <span className={`text-xs mt-1.5 font-medium hidden sm:block ${
                   i === step ? 'text-teal-600' : 'text-gray-400'
@@ -315,11 +304,8 @@ export default function IntakeForm() {
           <h2 className="text-xl font-semibold text-gray-800 mb-6">{STEPS[step]}</h2>
 
           {error && (
-            <div className="mb-5 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm flex items-start gap-2">
-              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              <span>{error}</span>
+            <div className="mb-5 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm">
+              {error}
             </div>
           )}
 
@@ -349,15 +335,7 @@ export default function IntakeForm() {
                 disabled={loading}
                 className="flex-1 py-3 px-4 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 active:scale-95 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Submitting...
-                  </span>
-                ) : 'Submit'}
+                {loading ? 'Submitting...' : 'Submit'}
               </button>
             )}
           </div>
