@@ -13,7 +13,7 @@ export default function SuccessScreen({ name, businessName }) {
           </p>
           <div className="p-4 bg-teal-50 rounded-2xl">
             <p className="text-teal-700 text-sm font-medium">
-              A summary has been added to our calendar — we'll be in touch soon.
+              We'll reach out within one business day to confirm your time.
             </p>
           </div>
         </div>

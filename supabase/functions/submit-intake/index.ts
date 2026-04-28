@@ -12,7 +12,8 @@ interface FormData {
   city_zip: string
   start_date: string
   preferred_days: string[]
-  preferred_times: string[]
+  preferred_arrival_times: string[]
+  preferred_exit_times: string[]
   service_address: string
   unit?: string
   home_size: string
@@ -34,25 +35,25 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    const { data: row, error: dbError } = await supabase
-      .from('intake_submissions')
+    const { error: dbError } = await supabase
+      .from('booking_requests')
       .insert({
-        full_name: form.full_name,
-        email: form.email,
-        phone: form.phone,
-        city_zip: form.city_zip,
-        start_date: form.start_date,
-        preferred_days: form.preferred_days,
-        preferred_times: form.preferred_times,
-        service_address: form.service_address,
+        customer_name: form.full_name,
+        customer_email: form.email,
+        customer_phone: form.phone,
+        address: form.service_address,
         unit: form.unit || null,
+        city: form.city_zip,
+        preferred_date: form.start_date,
+        preferred_days: form.preferred_days,
+        preferred_arrival_times: form.preferred_arrival_times,
+        preferred_exit_times: form.preferred_exit_times,
         home_size: form.home_size,
         cleaning_frequency: form.cleaning_frequency,
         has_pets_allergies: form.has_pets_allergies || null,
-        additional_notes: form.additional_notes || null,
+        notes: form.additional_notes || '',
+        source: 'intake-form',
       })
-      .select()
-      .single()
 
     if (dbError) throw new Error(`DB insert failed: ${dbError.message}`)
 
@@ -60,11 +61,6 @@ Deno.serve(async (req) => {
     await Promise.allSettled([
       sendOwnerEmail(form).catch(e => console.error('Email error:', e)),
       sendOwnerSms(form).catch(e => console.error('SMS error:', e)),
-      createCalendarEvent(form)
-        .then(eventId =>
-          supabase.from('intake_submissions').update({ calendar_event_id: eventId }).eq('id', row.id)
-        )
-        .catch(e => console.error('Calendar error:', e)),
     ])
 
     return new Response(
@@ -113,7 +109,8 @@ async function sendOwnerEmail(form: FormData): Promise<void> {
       <p style="margin:4px 0"><strong>Frequency:</strong> ${form.cleaning_frequency}</p>
       <p style="margin:4px 0"><strong>Start Date:</strong> ${form.start_date}</p>
       <p style="margin:4px 0"><strong>Preferred Days:</strong> ${form.preferred_days.join(', ')}</p>
-      <p style="margin:4px 0"><strong>Preferred Times:</strong> ${form.preferred_times.join(', ')}</p>
+      <p style="margin:4px 0"><strong>Preferred Arrival:</strong> ${form.preferred_arrival_times.join(', ')}</p>
+      <p style="margin:4px 0"><strong>Preferred Exit:</strong> ${form.preferred_exit_times.join(', ')}</p>
       ${form.has_pets_allergies ? `<p style="margin:4px 0"><strong>Pets / Allergies:</strong> ${form.has_pets_allergies}</p>` : ''}
       ${form.additional_notes ? `<p style="margin:4px 0"><strong>Notes:</strong> ${form.additional_notes}</p>` : ''}
 
@@ -169,121 +166,4 @@ async function sendOwnerSms(form: FormData): Promise<void> {
   )
 
   if (!resp.ok) throw new Error(`Twilio ${resp.status}: ${await resp.text()}`)
-}
-
-// ── Google Calendar ────────────────────────────────────────────────────────────
-
-async function createCalendarEvent(form: FormData): Promise<string> {
-  const clientEmail = Deno.env.get('GOOGLE_CLIENT_EMAIL')!
-  const privateKey = (Deno.env.get('GOOGLE_PRIVATE_KEY') ?? '').replace(/\\n/g, '\n')
-  const calendarId = Deno.env.get('GOOGLE_CALENDAR_ID')!
-
-  const accessToken = await getGoogleAccessToken(clientEmail, privateKey)
-
-  // Use the customer's chosen start date + first preferred time for the event
-  const firstTime = form.preferred_times[0] ?? 'Morning (8am–12pm)'
-  let startHour = 9, endHour = 10
-  if (firstTime.includes('Afternoon')) { startHour = 13; endHour = 14 }
-  else if (firstTime.includes('Evening')) { startHour = 17; endHour = 18 }
-
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const start = `${form.start_date}T${pad(startHour)}:00:00`
-  const end = `${form.start_date}T${pad(endHour)}:00:00`
-
-  const description = [
-    'NEW CUSTOMER REQUEST',
-    '',
-    `Name: ${form.full_name}`,
-    `Email: ${form.email}`,
-    `Phone: ${form.phone}`,
-    '',
-    `Address: ${fullAddress(form)}`,
-    `Home Size: ${form.home_size}`,
-    `Frequency: ${form.cleaning_frequency}`,
-    '',
-    `Preferred Days: ${form.preferred_days.join(', ')}`,
-    `Preferred Times: ${form.preferred_times.join(', ')}`,
-    '',
-    `Pets / Allergies: ${form.has_pets_allergies || 'None'}`,
-    `Notes: ${form.additional_notes || 'None'}`,
-  ].join('\n')
-
-  const resp = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        summary: `Cleaning Request: ${form.full_name}`,
-        description,
-        start: { dateTime: start, timeZone: 'UTC' },
-        end: { dateTime: end, timeZone: 'UTC' },
-        colorId: '6',
-      }),
-    },
-  )
-
-  if (!resp.ok) throw new Error(`Calendar API ${resp.status}: ${await resp.text()}`)
-  return (await resp.json()).id
-}
-
-// ── Google Auth ────────────────────────────────────────────────────────────────
-
-function base64UrlEncode(data: string | ArrayBuffer): string {
-  let binary: string
-  if (data instanceof ArrayBuffer) {
-    binary = Array.from(new Uint8Array(data), b => String.fromCharCode(b)).join('')
-  } else {
-    binary = Array.from(new TextEncoder().encode(data), b => String.fromCharCode(b)).join('')
-  }
-  return btoa(binary).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
-}
-
-async function pemToArrayBuffer(pem: string): Promise<ArrayBuffer> {
-  const b64 = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
-    .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/\s/g, '')
-  const binary = atob(b64)
-  const buf = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i)
-  return buf.buffer
-}
-
-async function getGoogleAccessToken(clientEmail: string, privateKeyPem: string): Promise<string> {
-  const now = Math.floor(Date.now() / 1000)
-  const header = base64UrlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
-  const payload = base64UrlEncode(JSON.stringify({
-    iss: clientEmail,
-    scope: 'https://www.googleapis.com/auth/calendar',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  }))
-
-  const signingInput = `${header}.${payload}`
-  const keyBuffer = await pemToArrayBuffer(privateKeyPem)
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    keyBuffer,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(signingInput))
-
-  const jwt = `${signingInput}.${base64UrlEncode(signature)}`
-
-  const resp = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }),
-  })
-
-  const data = await resp.json()
-  if (!data.access_token) throw new Error(`Failed to get access token: ${JSON.stringify(data)}`)
-  return data.access_token
 }

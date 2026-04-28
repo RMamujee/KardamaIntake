@@ -5,11 +5,12 @@ import SuccessScreen from './SuccessScreen'
 
 const MOCK = false
 
-const BUSINESS_NAME = 'YOUR_BUSINESS'
+const BUSINESS_NAME = 'Kardama'
 const STORAGE_KEY = 'kardama_intake_draft'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const TIMES = ['8:00am – 10:00am', '10:00am – 12:00pm', '12:00pm – 2:00pm', '2:00pm – 4:00pm', '4:00pm – 6:00pm']
+const ARRIVAL_TIMES = ['8:00am', '9:00am', '10:00am', '11:00am', '12:00pm', '1:00pm']
+const EXIT_TIMES = ['3:00pm', '4:00pm', '5:00pm', '6:00pm', '7:00pm', '8:00pm']
 const HOME_SIZES = ['Studio', '1 Bedroom', '2 Bedrooms', '3 Bedrooms', '4+ Bedrooms', 'Commercial']
 const FREQUENCIES = ['One-time', 'Weekly', 'Bi-weekly', 'Monthly']
 const STEPS = ['About You', 'Your Schedule', 'Final Details']
@@ -21,14 +22,14 @@ const tomorrow = () => {
 }
 
 const BLANK_FORM = {
-  type: 'customer',
   full_name: '',
   email: '',
   phone: '',
   city_zip: '',
   start_date: '',
   preferred_days: [],
-  preferred_times: [],
+  preferred_arrival_times: [],
+  preferred_exit_times: [],
   service_address: '',
   unit: '',
   home_size: '',
@@ -126,16 +127,37 @@ function Step2({ form, set, toggleArray }) {
       </div>
 
       <div>
-        <p className={label}>Preferred Arrival Window *</p>
+        <p className={label}>Preferred Arrival Time *</p>
         <p className="text-xs text-gray-400 mb-3">Select all that work for you</p>
-        <div className="space-y-2">
-          {TIMES.map(time => (
+        <div className="grid grid-cols-3 gap-2">
+          {ARRIVAL_TIMES.map(time => (
             <button
               key={time}
               type="button"
-              onClick={() => toggleArray('preferred_times', time)}
-              className={`w-full p-3 rounded-xl text-left text-sm font-medium transition-all ${
-                form.preferred_times.includes(time)
+              onClick={() => toggleArray('preferred_arrival_times', time)}
+              className={`py-2 px-1 rounded-lg text-sm font-medium transition-all ${
+                form.preferred_arrival_times.includes(time)
+                  ? 'bg-teal-500 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {time}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className={label}>Preferred Exit Time *</p>
+        <p className="text-xs text-gray-400 mb-3">When should we be finished by?</p>
+        <div className="grid grid-cols-3 gap-2">
+          {EXIT_TIMES.map(time => (
+            <button
+              key={time}
+              type="button"
+              onClick={() => toggleArray('preferred_exit_times', time)}
+              className={`py-2 px-1 rounded-lg text-sm font-medium transition-all ${
+                form.preferred_exit_times.includes(time)
                   ? 'bg-teal-500 text-white shadow-sm'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
@@ -291,7 +313,8 @@ export default function IntakeForm() {
     if (s === 1) {
       if (!form.start_date) return 'Please select a preferred start date.'
       if (form.preferred_days.length === 0) return 'Please select at least one preferred day.'
-      if (form.preferred_times.length === 0) return 'Please select at least one preferred time.'
+      if (form.preferred_arrival_times.length === 0) return 'Please select at least one preferred arrival time.'
+      if (form.preferred_exit_times.length === 0) return 'Please select at least one preferred exit time.'
     }
     if (s === 2) {
       if (!form.service_address.trim()) return 'Service address is required.'
