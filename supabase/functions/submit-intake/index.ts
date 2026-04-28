@@ -59,8 +59,9 @@ Deno.serve(async (req) => {
 
     // Non-fatal notifications — log errors but never block the submission
     await Promise.allSettled([
-      sendOwnerEmail(form).catch(e => console.error('Email error:', e)),
-      sendOwnerSms(form).catch(e => console.error('SMS error:', e)),
+      sendOwnerEmail(form).catch(e => console.error('Owner email error:', e)),
+      sendOwnerSms(form).catch(e => console.error('Owner SMS error:', e)),
+      sendCustomerEmail(form).catch(e => console.error('Customer email error:', e)),
     ])
 
     return new Response(
@@ -130,6 +131,52 @@ async function sendOwnerEmail(form: FormData): Promise<void> {
       to: ownerEmail,
       reply_to: form.email,
       subject: `New cleaning request — ${form.full_name}`,
+      html,
+    }),
+  })
+
+  if (!resp.ok) throw new Error(`Resend ${resp.status}: ${await resp.text()}`)
+}
+
+// ── Customer confirmation email ────────────────────────────────────────────────
+
+async function sendCustomerEmail(form: FormData): Promise<void> {
+  const resendKey = Deno.env.get('RESEND_API_KEY')!
+  const businessName = Deno.env.get('BUSINESS_NAME') || 'Your Business'
+  const ownerEmail = Deno.env.get('OWNER_EMAIL')
+
+  const arrival = form.preferred_arrival_times[0] ?? ''
+  const dateLine = arrival ? `${form.start_date} at ${arrival}` : form.start_date
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#111">
+      <h2 style="margin-bottom:4px">Thanks, ${form.full_name.split(' ')[0]}!</h2>
+      <p style="color:#555;margin-top:0">We received your cleaning request.</p>
+      <hr style="border:none;border-top:1px solid #eee;margin:16px 0"/>
+
+      <p style="margin:4px 0"><strong>Requested time:</strong> ${dateLine}</p>
+      <p style="margin:4px 0"><strong>Service address:</strong> ${fullAddress(form)}</p>
+      <p style="margin:4px 0"><strong>Home size:</strong> ${form.home_size}</p>
+      <p style="margin:4px 0"><strong>Frequency:</strong> ${form.cleaning_frequency}</p>
+
+      <hr style="border:none;border-top:1px solid #eee;margin:16px 0"/>
+      <p style="margin:4px 0">We'll review your request and send a confirmation text once your appointment is on the calendar.</p>
+
+      <p style="color:#aaa;font-size:12px;margin-top:24px">— ${businessName}</p>
+    </div>
+  `
+
+  const resp = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: `${businessName} <onboarding@resend.dev>`,
+      to: form.email,
+      ...(ownerEmail ? { reply_to: ownerEmail } : {}),
+      subject: `We got your cleaning request — ${businessName}`,
       html,
     }),
   })
