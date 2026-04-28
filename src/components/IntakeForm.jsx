@@ -5,7 +5,7 @@ import SuccessScreen from './SuccessScreen'
 
 const MOCK = false
 
-const BUSINESS_NAME = 'Kardama'
+const BUSINESS_NAME = 'Your company name here'
 const STORAGE_KEY = 'kardama_intake_draft'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
