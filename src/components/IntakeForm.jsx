@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Autocomplete from 'react-google-autocomplete'
 import { supabase } from '../lib/supabase'
 import SuccessScreen from './SuccessScreen'
 
@@ -114,15 +115,41 @@ function Step2({ form, toggleArray }) {
   )
 }
 
+const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY
+
+function AddressInput({ value, onChange, className, placeholder }) {
+  if (GOOGLE_API_KEY) {
+    return (
+      <Autocomplete
+        apiKey={GOOGLE_API_KEY}
+        onPlaceSelected={place => onChange(place.formatted_address ?? value)}
+        onChange={e => onChange(e.target.value)}
+        options={{ types: ['address'], componentRestrictions: { country: 'us' } }}
+        defaultValue={value}
+        placeholder={placeholder}
+        className={className}
+      />
+    )
+  }
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={className}
+    />
+  )
+}
+
 function Step3({ form, set }) {
   return (
     <div className="space-y-5">
       <div>
         <label className={label}>Service Address *</label>
-        <input
-          type="text"
+        <AddressInput
           value={form.service_address}
-          onChange={e => set('service_address', e.target.value)}
+          onChange={val => set('service_address', val)}
           placeholder="123 Main St, Chicago, IL 60601"
           className={input}
         />
