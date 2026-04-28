@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Autocomplete from 'react-google-autocomplete'
 import { supabase } from '../lib/supabase'
 import SuccessScreen from './SuccessScreen'
@@ -7,12 +7,36 @@ import SuccessScreen from './SuccessScreen'
 const MOCK = true
 
 const BUSINESS_NAME = 'YOUR_BUSINESS'
+const STORAGE_KEY = 'kardama_intake_draft'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const TIMES = ['Morning (8am–12pm)', 'Afternoon (12pm–5pm)', 'Evening (5pm–8pm)']
 const HOME_SIZES = ['Studio', '1 Bedroom', '2 Bedrooms', '3 Bedrooms', '4+ Bedrooms', 'Commercial']
 const FREQUENCIES = ['One-time', 'Weekly', 'Bi-weekly', 'Monthly']
 const STEPS = ['About You', 'Your Schedule', 'Final Details']
+
+const tomorrow = () => {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().split('T')[0]
+}
+
+const BLANK_FORM = {
+  type: 'customer',
+  full_name: '',
+  email: '',
+  phone: '',
+  city_zip: '',
+  start_date: '',
+  preferred_days: [],
+  preferred_times: [],
+  service_address: '',
+  unit: '',
+  home_size: '',
+  cleaning_frequency: '',
+  has_pets_allergies: '',
+  additional_notes: '',
+}
 
 const input = "w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition-all text-gray-800 placeholder-gray-400 bg-white"
 const label = "block text-sm font-medium text-gray-700 mb-1.5"
@@ -67,9 +91,20 @@ function Step1({ form, set }) {
   )
 }
 
-function Step2({ form, toggleArray }) {
+function Step2({ form, set, toggleArray }) {
   return (
     <div className="space-y-6">
+      <div>
+        <label className={label}>Preferred Start Date *</label>
+        <input
+          type="date"
+          value={form.start_date}
+          min={tomorrow()}
+          onChange={e => set('start_date', e.target.value)}
+          className={input}
+        />
+      </div>
+
       <div>
         <p className={label}>Preferred Days *</p>
         <p className="text-xs text-gray-400 mb-3">Select all that apply</p>
@@ -156,6 +191,17 @@ function Step3({ form, set }) {
       </div>
 
       <div>
+        <label className={label}>Unit / Apt</label>
+        <input
+          type="text"
+          value={form.unit}
+          onChange={e => set('unit', e.target.value)}
+          placeholder="Apt 4B"
+          className={input}
+        />
+      </div>
+
+      <div>
         <label className={label}>Home Size *</label>
         <select
           value={form.home_size}
@@ -205,25 +251,27 @@ function Step3({ form, set }) {
 }
 
 export default function IntakeForm() {
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(() => {
+    try { return Number(localStorage.getItem(STORAGE_KEY + '_step') ?? 0) } catch { return 0 }
+  })
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const [form, setFormState] = useState({
-    type: 'customer',
-    full_name: '',
-    email: '',
-    phone: '',
-    city_zip: '',
-    preferred_days: [],
-    preferred_times: [],
-    service_address: '',
-    home_size: '',
-    cleaning_frequency: '',
-    has_pets_allergies: '',
-    additional_notes: '',
+  const [form, setFormState] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      return saved ? { ...BLANK_FORM, ...JSON.parse(saved) } : BLANK_FORM
+    } catch { return BLANK_FORM }
   })
+
+  // Persist draft on every change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
+      localStorage.setItem(STORAGE_KEY + '_step', String(step))
+    } catch {}
+  }, [form, step])
 
   const set = (key, value) => setFormState(f => ({ ...f, [key]: value }))
   const toggleArray = (key, value) => setFormState(f => ({
@@ -242,6 +290,7 @@ export default function IntakeForm() {
       if (!form.city_zip.trim()) return 'City / ZIP Code is required.'
     }
     if (s === 1) {
+      if (!form.start_date) return 'Please select a preferred start date.'
       if (form.preferred_days.length === 0) return 'Please select at least one preferred day.'
       if (form.preferred_times.length === 0) return 'Please select at least one preferred time.'
     }
@@ -276,6 +325,7 @@ export default function IntakeForm() {
         })
         if (fnError) throw fnError
       }
+      try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STORAGE_KEY + '_step') } catch {}
       setSubmitted(true)
     } catch (e) {
       console.error(e)
@@ -337,7 +387,7 @@ export default function IntakeForm() {
           )}
 
           {step === 0 && <Step1 form={form} set={set} />}
-          {step === 1 && <Step2 form={form} toggleArray={toggleArray} />}
+          {step === 1 && <Step2 form={form} set={set} toggleArray={toggleArray} />}
           {step === 2 && <Step3 form={form} set={set} />}
 
           <div className="flex gap-3 mt-8">
