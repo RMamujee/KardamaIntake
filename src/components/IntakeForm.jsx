@@ -117,9 +117,24 @@ function Step2({ form, setFormState }) {
 
   const initial = form.start_date ? parseDate(form.start_date) : minDate
   const [view, setView] = useState({ year: initial.getFullYear(), month: initial.getMonth() })
+  const [bookedTimes, setBookedTimes] = useState([])
 
   const grid = buildMonthGrid(view.year, view.month)
   const selectedTime = form.preferred_arrival_times[0] || ''
+
+  useEffect(() => {
+    if (!form.start_date) { setBookedTimes([]); return }
+    supabase.rpc('get_booked_slots', { check_date: form.start_date })
+      .then(({ data }) => setBookedTimes(Array.isArray(data) ? data : []))
+      .catch(() => setBookedTimes([]))
+  }, [form.start_date])
+
+  // Clear selected time if it just became fully booked
+  useEffect(() => {
+    const sel = form.preferred_arrival_times[0]
+    if (sel && bookedTimes.includes(sel))
+      setFormState(f => ({ ...f, preferred_arrival_times: [] }))
+  }, [bookedTimes])
 
   const selectDate = (d) => {
     setFormState(f => ({
@@ -214,20 +229,26 @@ function Step2({ form, setFormState }) {
             })}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {TIMES.map(t => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => selectTime(t)}
-                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
-                  selectedTime === t
-                    ? 'bg-teal-500 text-white border-teal-500 shadow-sm'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+            {TIMES.map(t => {
+              const booked = bookedTimes.includes(t)
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => !booked && selectTime(t)}
+                  disabled={booked}
+                  className={`py-3 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                    booked
+                      ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                      : selectedTime === t
+                      ? 'bg-teal-500 text-white border-teal-500 shadow-sm'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400'
+                  }`}
+                >
+                  {booked ? `${t} · Full` : t}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
@@ -236,47 +257,68 @@ function Step2({ form, setFormState }) {
 }
 
 function AddressInput({ value, onChange, className, placeholder }) {
-  const ref = useRef(null)
-  const onChangeRef = useRef(onChange)
+  const [suggestions, setSuggestions] = useState([])
   const [ready, setReady] = useState(false)
-  useEffect(() => { onChangeRef.current = onChange })
+  const svcRef = useRef(null)
+  const timerRef = useRef(null)
 
   useEffect(() => {
-    if (!ref.current) return
-    let ac
-
-    loadMapsApi().then(() => {
-      if (!ref.current) return
-      ac = new window.google.maps.places.Autocomplete(ref.current, {
-        types: ['address'],
-        componentRestrictions: { country: 'us' },
+    loadMapsApi()
+      .then(() => {
+        svcRef.current = new window.google.maps.places.AutocompleteService()
+        setReady(true)
       })
-      ac.addListener('place_changed', () => {
-        const place = ac.getPlace()
-        const addr = place?.formatted_address || place?.name || ref.current?.value || ''
-        if (addr) onChangeRef.current(addr)
-      })
-      setReady(true)
-    }).catch(() => setReady(true))
-
-    return () => {
-      try {
-        if (ac && window.google) window.google.maps.event.clearInstanceListeners(ac)
-      } catch {}
-    }
+      .catch(() => setReady(true))
   }, [])
 
+  const handleChange = (e) => {
+    const val = e.target.value
+    onChange(val)
+    clearTimeout(timerRef.current)
+    if (!val || val.length < 2) { setSuggestions([]); return }
+    timerRef.current = setTimeout(() => {
+      if (!svcRef.current) return
+      svcRef.current.getPlacePredictions(
+        { input: val, types: ['address'], componentRestrictions: { country: 'us' } },
+        (preds, status) => setSuggestions(status === 'OK' && preds ? preds.slice(0, 5) : [])
+      )
+    }, 300)
+  }
+
+  const pick = (pred) => {
+    onChange(pred.description)
+    setSuggestions([])
+  }
+
   return (
-    <input
-      ref={ref}
-      type="text"
-      defaultValue={value}
-      onChange={e => onChange(e.target.value)}
-      onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
-      placeholder={ready ? placeholder : 'Loading address search…'}
-      className={className}
-      autoComplete="off"
-    />
+    <div className="relative">
+      <input
+        type="text"
+        value={value}
+        onChange={handleChange}
+        onBlur={() => { clearTimeout(timerRef.current); setTimeout(() => setSuggestions([]), 150) }}
+        onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
+        placeholder={ready ? placeholder : 'Loading address search…'}
+        className={className}
+        autoComplete="off"
+      />
+      {suggestions.length > 0 && (
+        <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+          {suggestions.map(pred => (
+            <li key={pred.place_id}>
+              <button
+                type="button"
+                onMouseDown={() => pick(pred)}
+                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-teal-50 border-b border-gray-100 last:border-0"
+              >
+                <span className="font-medium">{pred.structured_formatting?.main_text}</span>
+                <span className="text-gray-400 text-xs ml-1">{pred.structured_formatting?.secondary_text}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
