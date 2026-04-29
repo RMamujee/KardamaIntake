@@ -9,7 +9,6 @@ interface FormData {
   full_name: string
   email: string
   phone: string
-  city_zip: string
   start_date: string
   preferred_days: string[]
   preferred_arrival_times: string[]
@@ -36,6 +35,27 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
+    // Server-side capacity check — prevents race-condition double-bookings
+    const [{ count }, { data: setting }] = await Promise.all([
+      supabase
+        .from('booking_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('preferred_date', form.start_date),
+      supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'max_teams')
+        .single(),
+    ])
+
+    const maxTeams = parseInt(setting?.value ?? '5', 10)
+    if ((count ?? 0) >= maxTeams) {
+      return new Response(
+        JSON.stringify({ error: 'Sorry, this date is fully booked. Please choose another date.' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     const { error: dbError } = await supabase
       .from('booking_requests')
       .insert({
@@ -44,7 +64,6 @@ Deno.serve(async (req) => {
         customer_phone: form.phone,
         address: form.service_address,
         unit: form.unit || null,
-        city: form.city_zip,
         preferred_date: form.start_date,
         preferred_days: form.preferred_days,
         preferred_arrival_times: form.preferred_arrival_times,

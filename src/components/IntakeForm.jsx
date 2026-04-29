@@ -495,15 +495,15 @@ export default function IntakeForm() {
     setError('')
     setLoading(true)
     try {
-      const { error: fnError } = await supabase.functions.invoke('submit-intake', {
+      const { error: fnError, data } = await supabase.functions.invoke('submit-intake', {
         body: form,
       })
-      if (fnError) throw fnError
+      if (fnError) throw new Error(data?.error || fnError.message || 'Something went wrong.')
       try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STORAGE_KEY + '_step') } catch {}
       setSubmitted(true)
     } catch (e) {
       console.error(e)
-      setError('Something went wrong. Please try again or contact us directly.')
+      setError((e as Error).message || 'Something went wrong. Please try again or contact us directly.')
     } finally {
       setLoading(false)
     }
