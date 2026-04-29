@@ -1,8 +1,8 @@
 {
-  "name": "KardamaIntake — New Booking",
+  "name": "KardamaIntake New Booking",
   "nodes": [
     {
-      "id": "aa000001-0000-0000-0000-000000000001",
+      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
       "name": "On New Booking",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -13,20 +13,20 @@
         "responseMode": "onReceived",
         "options": {}
       },
-      "webhookId": "aa000001-0000-0000-0000-000000000001"
+      "webhookId": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
     },
     {
-      "id": "aa000002-0000-0000-0000-000000000002",
+      "id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
       "name": "Normalize Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [460, 400],
       "parameters": {
-        "jsCode": "const rec = $input.first().json.body?.record ?? $input.first().json;\n\nfunction parseTime(t) {\n  if (!t) return '10:00';\n  const m = String(t).match(/(\\d+):(\\d+)(am|pm)/i);\n  if (!m) return '10:00';\n  let h = parseInt(m[1]);\n  if (m[3].toLowerCase() === 'pm' && h !== 12) h += 12;\n  if (m[3].toLowerCase() === 'am' && h === 12) h = 0;\n  return `${String(h).padStart(2,'0')}:${m[2]}`;\n}\n\nfunction addHours(time, n) {\n  const [h, m] = time.split(':').map(Number);\n  return `${String(Math.min(h + n, 23)).padStart(2,'0')}:${String(m).padStart(2,'0')}`;\n}\n\nconst startTime = parseTime((rec.preferred_arrival_times || [])[0]);\nconst endTime = addHours(startTime, 2);\nconst date = rec.preferred_date;\n\nreturn [{\n  json: {\n    id: rec.id,\n    customer_name: rec.customer_name,\n    first_name: (rec.customer_name || '').split(' ')[0],\n    customer_email: rec.customer_email,\n    customer_phone: rec.customer_phone,\n    city: rec.city,\n    address: rec.unit ? `${rec.address}, ${rec.unit}` : rec.address,\n    home_size: rec.home_size,\n    cleaning_frequency: rec.cleaning_frequency,\n    payment_method: rec.payment_method || 'Not specified',\n    has_pets_allergies: rec.has_pets_allergies || '',\n    notes: rec.notes || '',\n    preferred_date: date,\n    preferred_days: (rec.preferred_days || []).join(', '),\n    preferred_arrival_times: (rec.preferred_arrival_times || []).join(', '),\n    start_datetime: `${date}T${startTime}:00`,\n    end_datetime: `${date}T${endTime}:00`\n  }\n}];"
+        "jsCode": "const rec = $input.first().json.body?.record ?? $input.first().json;\n\nfunction parseTime(t) {\n  if (!t) return '10:00';\n  const m = String(t).match(/(\\d+):(\\d+)(am|pm)/i);\n  if (!m) return '10:00';\n  let h = parseInt(m[1]);\n  if (m[3].toLowerCase() === 'pm' && h !== 12) h += 12;\n  if (m[3].toLowerCase() === 'am' && h === 12) h = 0;\n  return `${String(h).padStart(2,'00')}:${m[2]}`;\n}\n\nfunction addHours(time, n) {\n  const [h, m] = time.split(':').map(Number);\n  return `${String(Math.min(h + n, 23)).padStart(2,'0')}:${String(m).padStart(2,'0')}`;\n}\n\nconst startTime = parseTime((rec.preferred_arrival_times || [])[0]);\nconst endTime = addHours(startTime, 2);\nconst date = rec.preferred_date;\n\nreturn [{\n  json: {\n    id: rec.id,\n    customer_name: rec.customer_name,\n    first_name: (rec.customer_name || '').split(' ')[0],\n    customer_email: rec.customer_email,\n    customer_phone: rec.customer_phone,\n    city: rec.city,\n    address: rec.unit ? `${rec.address}, ${rec.unit}` : rec.address,\n    home_size: rec.home_size,\n    cleaning_frequency: rec.cleaning_frequency,\n    payment_method: rec.payment_method || 'Not specified',\n    has_pets_allergies: rec.has_pets_allergies || '',\n    notes: rec.notes || '',\n    preferred_date: date,\n    preferred_days: (rec.preferred_days || []).join(', '),\n    preferred_arrival_times: (rec.preferred_arrival_times || []).join(', '),\n    start_datetime: `${date}T${startTime}:00`,\n    end_datetime: `${date}T${endTime}:00`\n  }\n}];"
       }
     },
     {
-      "id": "aa000003-0000-0000-0000-000000000003",
+      "id": "6ba7b811-9dad-11d1-80b4-00c04fd430c8",
       "name": "Create Calendar Event",
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1,
@@ -41,20 +41,14 @@
         "start": "={{ $json.start_datetime }}",
         "end": "={{ $json.end_datetime }}",
         "additionalFields": {
-          "summary": "=Cleaning — {{ $json.customer_name }}",
-          "description": "=Name: {{ $json.customer_name }}\nPhone: {{ $json.customer_phone }}\nEmail: {{ $json.customer_email }}\nAddress: {{ $json.address }}\nHome: {{ $json.home_size }}\nFrequency: {{ $json.cleaning_frequency }}\nPayment: {{ $json.payment_method }}{{ $json.has_pets_allergies ? '\\nPets/Allergies: ' + $json.has_pets_allergies : '' }}{{ $json.notes ? '\\nNotes: ' + $json.notes : '' }}",
+          "summary": "=Cleaning - {{ $json.customer_name }}",
+          "description": "=Name: {{ $json.customer_name }}\nPhone: {{ $json.customer_phone }}\nEmail: {{ $json.customer_email }}\nAddress: {{ $json.address }}\nHome: {{ $json.home_size }}\nFrequency: {{ $json.cleaning_frequency }}\nPayment: {{ $json.payment_method }}",
           "location": "={{ $json.address }}"
-        }
-      },
-      "credentials": {
-        "googleCalendarOAuth2Api": {
-          "id": "REPLACE_ME",
-          "name": "Google Calendar"
         }
       }
     },
     {
-      "id": "aa000004-0000-0000-0000-000000000004",
+      "id": "6ba7b812-9dad-11d1-80b4-00c04fd430c8",
       "name": "Save Calendar Event ID",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -82,7 +76,7 @@
       }
     },
     {
-      "id": "aa000005-0000-0000-0000-000000000005",
+      "id": "6ba7b813-9dad-11d1-80b4-00c04fd430c8",
       "name": "Owner Email",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -104,15 +98,15 @@
             { "name": "from", "value": "={{ $vars.BUSINESS_NAME }} Intake <onboarding@resend.dev>" },
             { "name": "to", "value": "={{ $vars.OWNER_EMAIL }}" },
             { "name": "reply_to", "value": "={{ $json.customer_email }}" },
-            { "name": "subject", "value": "=New cleaning request — {{ $json.customer_name }}" },
-            { "name": "html", "value": "=<div style=\"font-family:sans-serif;max-width:520px;margin:0 auto;color:#111\"><h2 style=\"margin-bottom:4px\">New Cleaning Request</h2><p style=\"color:#555;margin-top:0\">Submitted via {{ $vars.BUSINESS_NAME }} intake form</p><hr style=\"border:none;border-top:1px solid #eee;margin:16px 0\"/><h3>Contact</h3><p><strong>Name:</strong> {{ $json.customer_name }}</p><p><strong>Email:</strong> {{ $json.customer_email }}</p><p><strong>Phone:</strong> {{ $json.customer_phone }}</p><p><strong>City/ZIP:</strong> {{ $json.city }}</p><hr style=\"border:none;border-top:1px solid #eee;margin:16px 0\"/><h3>Service Details</h3><p><strong>Address:</strong> {{ $json.address }}</p><p><strong>Home Size:</strong> {{ $json.home_size }}</p><p><strong>Frequency:</strong> {{ $json.cleaning_frequency }}</p><p><strong>Start Date:</strong> {{ $json.preferred_date }}</p><p><strong>Arrival:</strong> {{ $json.preferred_arrival_times }}</p><p><strong>Payment:</strong> {{ $json.payment_method }}</p>{{ $json.has_pets_allergies ? '<p><strong>Pets/Allergies:</strong> ' + $json.has_pets_allergies + '</p>' : '' }}{{ $json.notes ? '<p><strong>Notes:</strong> ' + $json.notes + '</p>' : '' }}<hr style=\"border:none;border-top:1px solid #eee;margin:16px 0\"/><p style=\"color:#aaa;font-size:12px\">Powered by Kardama</p></div>" }
+            { "name": "subject", "value": "=New cleaning request - {{ $json.customer_name }}" },
+            { "name": "html", "value": "=<div style=\"font-family:sans-serif;max-width:520px;margin:0 auto;color:#111\"><h2>New Cleaning Request</h2><p><strong>Name:</strong> {{ $json.customer_name }}</p><p><strong>Email:</strong> {{ $json.customer_email }}</p><p><strong>Phone:</strong> {{ $json.customer_phone }}</p><p><strong>City/ZIP:</strong> {{ $json.city }}</p><hr/><p><strong>Address:</strong> {{ $json.address }}</p><p><strong>Home Size:</strong> {{ $json.home_size }}</p><p><strong>Frequency:</strong> {{ $json.cleaning_frequency }}</p><p><strong>Date:</strong> {{ $json.preferred_date }}</p><p><strong>Arrival:</strong> {{ $json.preferred_arrival_times }}</p><p><strong>Payment:</strong> {{ $json.payment_method }}</p></div>" }
           ]
         },
         "options": {}
       }
     },
     {
-      "id": "aa000006-0000-0000-0000-000000000006",
+      "id": "6ba7b814-9dad-11d1-80b4-00c04fd430c8",
       "name": "Customer Email",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -134,15 +128,15 @@
             { "name": "from", "value": "={{ $vars.BUSINESS_NAME }} <onboarding@resend.dev>" },
             { "name": "to", "value": "={{ $json.customer_email }}" },
             { "name": "reply_to", "value": "={{ $vars.OWNER_EMAIL }}" },
-            { "name": "subject", "value": "=We got your cleaning request — {{ $vars.BUSINESS_NAME }}" },
-            { "name": "html", "value": "=<div style=\"font-family:sans-serif;max-width:520px;margin:0 auto;color:#111\"><h2 style=\"margin-bottom:4px\">Thanks, {{ $json.first_name }}!</h2><p style=\"color:#555;margin-top:0\">We received your cleaning request.</p><hr style=\"border:none;border-top:1px solid #eee;margin:16px 0\"/><p><strong>Requested time:</strong> {{ $json.preferred_date }} at {{ $json.preferred_arrival_times }}</p><p><strong>Service address:</strong> {{ $json.address }}</p><p><strong>Home size:</strong> {{ $json.home_size }}</p><p><strong>Frequency:</strong> {{ $json.cleaning_frequency }}</p><hr style=\"border:none;border-top:1px solid #eee;margin:16px 0\"/><p>We'll review your request and send a confirmation once your appointment is on the calendar.</p><p style=\"color:#aaa;font-size:12px;margin-top:24px\">— {{ $vars.BUSINESS_NAME }}</p></div>" }
+            { "name": "subject", "value": "=We got your cleaning request - {{ $vars.BUSINESS_NAME }}" },
+            { "name": "html", "value": "=<div style=\"font-family:sans-serif;max-width:520px;margin:0 auto;color:#111\"><h2>Thanks, {{ $json.first_name }}!</h2><p>We received your cleaning request.</p><hr/><p><strong>Date:</strong> {{ $json.preferred_date }} at {{ $json.preferred_arrival_times }}</p><p><strong>Address:</strong> {{ $json.address }}</p><p><strong>Home size:</strong> {{ $json.home_size }}</p><p><strong>Frequency:</strong> {{ $json.cleaning_frequency }}</p><hr/><p>We will review your request and reach out to confirm.</p></div>" }
           ]
         },
         "options": {}
       }
     },
     {
-      "id": "aa000007-0000-0000-0000-000000000007",
+      "id": "6ba7b815-9dad-11d1-80b4-00c04fd430c8",
       "name": "Owner SMS",
       "type": "n8n-nodes-base.twilio",
       "typeVersion": 1,
@@ -151,12 +145,6 @@
         "from": "={{ $vars.TWILIO_FROM_NUMBER }}",
         "to": "={{ $vars.OWNER_PHONE }}",
         "message": "=New cleaning request:\n{{ $json.customer_name }} | {{ $json.customer_phone }}\nDate: {{ $json.preferred_date }} at {{ $json.preferred_arrival_times }}\n{{ $json.address }}\n{{ $json.home_size }} | {{ $json.cleaning_frequency }}\nPayment: {{ $json.payment_method }}"
-      },
-      "credentials": {
-        "twilioApi": {
-          "id": "REPLACE_ME",
-          "name": "Twilio"
-        }
       }
     }
   ],
