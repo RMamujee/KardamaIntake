@@ -144,7 +144,7 @@ function Step2({ form, setFormState }) {
     <div className="space-y-6">
       <div>
         <p className={label}>Select a date *</p>
-        <div className="border border-gray-200 rounded-2xl p-4">
+        <div className="border border-gray-200 rounded-2xl p-3 sm:p-4">
           <div className="flex items-center justify-between mb-4">
             <button
               type="button"
@@ -412,17 +412,17 @@ export default function IntakeForm() {
   if (submitted) return <SuccessScreen name={form.full_name} businessName={BUSINESS_NAME} />
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 flex items-center justify-center p-3 sm:p-4">
       <div className="w-full max-w-md">
 
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{BUSINESS_NAME}</h1>
-          <p className="text-gray-500 mt-1">Request a cleaning</p>
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{BUSINESS_NAME}</h1>
+          <p className="text-sm sm:text-base text-gray-500 mt-1">Request a cleaning</p>
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-start justify-center mb-8">
+        <div className="flex items-start justify-center mb-6 sm:mb-8">
           {STEPS.map((stepLabel, i) => (
             <div key={i} className="flex items-center">
               <div className="flex flex-col items-center">
@@ -442,7 +442,7 @@ export default function IntakeForm() {
                 </span>
               </div>
               {i < STEPS.length - 1 && (
-                <div className={`w-14 h-0.5 mx-1 mb-4 transition-all ${
+                <div className={`w-10 sm:w-14 h-0.5 mx-1 sm:mb-4 transition-all ${
                   i < step ? 'bg-teal-500' : 'bg-gray-200'
                 }`} />
               )}
@@ -451,8 +451,8 @@ export default function IntakeForm() {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-teal-100/50 p-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">{STEPS[step]}</h2>
+        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl shadow-teal-100/50 p-5 sm:p-8">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-5 sm:mb-6">{STEPS[step]}</h2>
 
           {error && (
             <div className="mb-5 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm">
