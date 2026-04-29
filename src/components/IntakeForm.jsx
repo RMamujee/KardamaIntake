@@ -224,20 +224,33 @@ function AddressInput({ value, onChange, className, placeholder }) {
 
   useEffect(() => {
     if (!ref.current) return
-    let ac
-    window.__mapsReady.then(() => {
-      if (!ref.current) return
-      ac = new window.google.maps.places.Autocomplete(ref.current, {
-        types: ['address'],
-        componentRestrictions: { country: 'us' },
-      })
-      ac.addListener('place_changed', () => {
-        const place = ac.getPlace()
-        if (place?.formatted_address) onChange(place.formatted_address)
-      })
-    })
+    let ac, timer
+
+    const tryInit = () => {
+      if (!window.google?.maps?.places?.Autocomplete) {
+        timer = setTimeout(tryInit, 200)
+        return
+      }
+      try {
+        ac = new window.google.maps.places.Autocomplete(ref.current, {
+          types: ['address'],
+          componentRestrictions: { country: 'us' },
+          fields: ['formatted_address'],
+        })
+        ac.addListener('place_changed', () => {
+          const place = ac.getPlace()
+          if (place?.formatted_address) onChange(place.formatted_address)
+        })
+      } catch {}
+    }
+
+    tryInit()
+
     return () => {
-      if (ac && window.google) window.google.maps.event.clearInstanceListeners(ac)
+      clearTimeout(timer)
+      try {
+        if (ac && window.google) window.google.maps.event.clearInstanceListeners(ac)
+      } catch {}
     }
   }, [])
 

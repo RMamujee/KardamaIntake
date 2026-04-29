@@ -1,3 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Google Places autocomplete dropdown */
+.pac-container {
+  z-index: 9999 !important;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  margin-top: 4px;
+  font-family: inherit;
+}
+.pac-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+.pac-item:hover,
+.pac-item-selected {
+  background-color: #f0fdfa;
+}
