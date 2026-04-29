@@ -503,7 +503,7 @@ export default function IntakeForm() {
       setSubmitted(true)
     } catch (e) {
       console.error(e)
-      setError((e as Error).message || 'Something went wrong. Please try again or contact us directly.')
+      setError((e instanceof Error ? e.message : null) || 'Something went wrong. Please try again or contact us directly.')
     } finally {
       setLoading(false)
     }
