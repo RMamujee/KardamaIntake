@@ -222,19 +222,7 @@ function Step2({ form, setFormState }) {
 function AddressInput({ value, onChange, className, placeholder }) {
   const ref = useRef(null)
   const onChangeRef = useRef(onChange)
-  const lastValue = useRef(value)
   useEffect(() => { onChangeRef.current = onChange })
-
-  // Sync DOM value when state changes from outside (draft load, step navigation)
-  // but never overwrite while the user is actively typing in the field
-  useEffect(() => {
-    if (value !== lastValue.current) {
-      lastValue.current = value
-      if (ref.current && document.activeElement !== ref.current) {
-        ref.current.value = value
-      }
-    }
-  }, [value])
 
   useEffect(() => {
     if (!ref.current) return
@@ -253,10 +241,10 @@ function AddressInput({ value, onChange, className, placeholder }) {
         })
         ac.addListener('place_changed', () => {
           const place = ac.getPlace()
-          if (place?.formatted_address) {
-            lastValue.current = place.formatted_address
-            onChangeRef.current(place.formatted_address)
-          }
+          // Fall back to the text Google already wrote into the input if
+          // formatted_address is missing (avoids saving "undefined")
+          const addr = place?.formatted_address || ref.current?.value || ''
+          if (addr) onChangeRef.current(addr)
         })
       } catch {}
     }
@@ -276,13 +264,9 @@ function AddressInput({ value, onChange, className, placeholder }) {
       ref={ref}
       type="text"
       defaultValue={value}
-      onChange={e => {
-        lastValue.current = e.target.value
-        onChange(e.target.value)
-      }}
+      onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       className={className}
-      autoComplete="new-password"
     />
   )
 }
