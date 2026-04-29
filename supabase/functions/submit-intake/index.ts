@@ -20,6 +20,7 @@ interface FormData {
   cleaning_frequency: string
   has_pets_allergies?: string
   additional_notes?: string
+  payment_method?: string
 }
 
 Deno.serve(async (req) => {
@@ -52,6 +53,7 @@ Deno.serve(async (req) => {
         cleaning_frequency: form.cleaning_frequency,
         has_pets_allergies: form.has_pets_allergies || null,
         notes: form.additional_notes || '',
+        payment_method: form.payment_method || null,
         source: 'intake-form',
       })
 
@@ -113,6 +115,7 @@ async function sendOwnerEmail(form: FormData): Promise<void> {
       <p style="margin:4px 0"><strong>Preferred Arrival:</strong> ${form.preferred_arrival_times.join(', ')}</p>
       <p style="margin:4px 0"><strong>Preferred Exit:</strong> ${form.preferred_exit_times.join(', ')}</p>
       ${form.has_pets_allergies ? `<p style="margin:4px 0"><strong>Pets / Allergies:</strong> ${form.has_pets_allergies}</p>` : ''}
+      ${form.payment_method ? `<p style="margin:4px 0"><strong>Payment Method:</strong> ${form.payment_method}</p>` : ''}
       ${form.additional_notes ? `<p style="margin:4px 0"><strong>Notes:</strong> ${form.additional_notes}</p>` : ''}
 
       <hr style="border:none;border-top:1px solid #eee;margin:16px 0"/>
@@ -198,6 +201,7 @@ async function sendOwnerSms(form: FormData): Promise<void> {
     `Start: ${form.start_date}`,
     `${fullAddress(form)}`,
     `${form.home_size} | ${form.cleaning_frequency}`,
+    ...(form.payment_method ? [`Payment: ${form.payment_method}`] : []),
   ].join('\n')
 
   const resp = await fetch(

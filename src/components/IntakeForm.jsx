@@ -11,6 +11,7 @@ const STORAGE_KEY = 'kardama_intake_draft'
 const TIMES = ['7:00am', '8:00am', '9:00am', '10:00am', '11:00am', '12:00pm', '1:00pm']
 const HOME_SIZES = ['Studio', '1 Bedroom', '2 Bedrooms', '3 Bedrooms', '4+ Bedrooms', 'Commercial']
 const FREQUENCIES = ['One-time', 'Weekly', 'Bi-weekly', 'Monthly']
+const PAYMENT_METHODS = ['Zelle', 'Venmo', 'PayPal', 'Cash']
 const STEPS = ['About You', 'Your Schedule', 'Final Details']
 
 const DOW_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -50,6 +51,7 @@ const BLANK_FORM = {
   cleaning_frequency: '',
   has_pets_allergies: '',
   additional_notes: '',
+  payment_method: '',
 }
 
 const input = "w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition-all text-gray-800 placeholder-gray-400 bg-white"
@@ -316,6 +318,26 @@ function Step3({ form, set }) {
       </div>
 
       <div>
+        <label className={label}>Preferred payment method *</label>
+        <div className="grid grid-cols-2 gap-2">
+          {PAYMENT_METHODS.map(m => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => set('payment_method', m)}
+              className={`py-3 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                form.payment_method === m
+                  ? 'bg-teal-500 text-white border-teal-500 shadow-sm'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400'
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
         <label className={label}>Additional notes or special requests</label>
         <textarea
           value={form.additional_notes}
@@ -376,6 +398,7 @@ export default function IntakeForm() {
       if (!form.service_address.trim()) return 'Service address is required.'
       if (!form.home_size) return 'Please select your home size.'
       if (!form.cleaning_frequency) return 'Please select a cleaning frequency.'
+      if (!form.payment_method) return 'Please select a payment method.'
     }
     return null
   }
