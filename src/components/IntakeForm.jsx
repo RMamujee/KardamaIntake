@@ -270,6 +270,7 @@ function Step2({ form, setFormState }) {
 function AddressInput({ value, onChange, className, placeholder }) {
   const [suggestions, setSuggestions] = useState([])
   const [ready, setReady] = useState(false)
+  const [debugMsg, setDebugMsg] = useState('Loading Maps…')
   const svcRef = useRef(null)
   const timerRef = useRef(null)
 
@@ -278,8 +279,12 @@ function AddressInput({ value, onChange, className, placeholder }) {
       .then(() => {
         svcRef.current = new window.google.maps.places.AutocompleteService()
         setReady(true)
+        setDebugMsg('Maps ready')
       })
-      .catch(() => setReady(true))
+      .catch((err) => {
+        setReady(true)
+        setDebugMsg('Maps failed to load: ' + (err?.message || String(err)))
+      })
   }, [])
 
   const handleChange = (e) => {
@@ -288,10 +293,14 @@ function AddressInput({ value, onChange, className, placeholder }) {
     clearTimeout(timerRef.current)
     if (!val || val.length < 2) { setSuggestions([]); return }
     timerRef.current = setTimeout(() => {
-      if (!svcRef.current) return
+      if (!svcRef.current) { setDebugMsg('No autocomplete service'); return }
+      setDebugMsg('Fetching…')
       svcRef.current.getPlacePredictions(
-        { input: val, types: ['address'], componentRestrictions: { country: 'us' } },
-        (preds, status) => setSuggestions(status === 'OK' && preds ? preds.slice(0, 5) : [])
+        { input: val, componentRestrictions: { country: 'us' } },
+        (preds, status) => {
+          setDebugMsg(`Status: ${status} | Results: ${preds?.length ?? 0}`)
+          setSuggestions(status === 'OK' && preds ? preds.slice(0, 5) : [])
+        }
       )
     }, 300)
   }
@@ -299,6 +308,7 @@ function AddressInput({ value, onChange, className, placeholder }) {
   const pick = (pred) => {
     onChange(pred.description)
     setSuggestions([])
+    setDebugMsg('Selected')
   }
 
   return (
@@ -313,6 +323,7 @@ function AddressInput({ value, onChange, className, placeholder }) {
         className={className}
         autoComplete="off"
       />
+      <p className="text-xs text-gray-400 mt-1">[debug: {debugMsg}]</p>
       {suggestions.length > 0 && (
         <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
           {suggestions.map(pred => (
