@@ -221,6 +221,8 @@ function Step2({ form, setFormState }) {
 
 function AddressInput({ value, onChange, className, placeholder }) {
   const ref = useRef(null)
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange })
 
   useEffect(() => {
     if (!ref.current) return
@@ -239,7 +241,7 @@ function AddressInput({ value, onChange, className, placeholder }) {
         })
         ac.addListener('place_changed', () => {
           const place = ac.getPlace()
-          if (place?.formatted_address) onChange(place.formatted_address)
+          if (place?.formatted_address) onChangeRef.current(place.formatted_address)
         })
       } catch {}
     }
@@ -258,8 +260,8 @@ function AddressInput({ value, onChange, className, placeholder }) {
     <input
       ref={ref}
       type="text"
-      defaultValue={value}
-      onBlur={e => { if (e.target.value !== value) onChange(e.target.value) }}
+      value={value}
+      onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       className={className}
     />
