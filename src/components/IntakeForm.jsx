@@ -1,25 +1,22 @@
 import { useState, useEffect, useRef } from 'react'
+import { supabase } from '../lib/supabase'
+import SuccessScreen from './SuccessScreen'
 
-// Module-level singleton — script only injected once across all renders
+// Singleton — injects the Maps script once, resolves when places library is ready
 let _mapsPromise = null
 function loadMapsApi() {
   if (_mapsPromise) return _mapsPromise
-  if (window.google?.maps?.places) {
-    _mapsPromise = Promise.resolve()
-    return _mapsPromise
-  }
+  if (window.google?.maps?.places) return (_mapsPromise = Promise.resolve())
   _mapsPromise = new Promise((resolve, reject) => {
     window.__mapsCallback = resolve
     const s = document.createElement('script')
     s.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_API_KEY}&libraries=places&callback=__mapsCallback`
     s.async = true
-    s.onerror = () => { _mapsPromise = null; reject(new Error('Maps failed to load')) }
+    s.onerror = () => { _mapsPromise = null; reject() }
     document.head.appendChild(s)
   })
   return _mapsPromise
 }
-import { supabase } from '../lib/supabase'
-import SuccessScreen from './SuccessScreen'
 
 const MOCK = false
 
@@ -241,6 +238,7 @@ function Step2({ form, setFormState }) {
 function AddressInput({ value, onChange, className, placeholder }) {
   const ref = useRef(null)
   const onChangeRef = useRef(onChange)
+  const [ready, setReady] = useState(false)
   useEffect(() => { onChangeRef.current = onChange })
 
   useEffect(() => {
@@ -258,7 +256,8 @@ function AddressInput({ value, onChange, className, placeholder }) {
         const addr = place?.formatted_address || place?.name || ref.current?.value || ''
         if (addr) onChangeRef.current(addr)
       })
-    }).catch(() => {})
+      setReady(true)
+    }).catch(() => setReady(true))
 
     return () => {
       try {
@@ -274,8 +273,9 @@ function AddressInput({ value, onChange, className, placeholder }) {
       defaultValue={value}
       onChange={e => onChange(e.target.value)}
       onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
-      placeholder={placeholder}
+      placeholder={ready ? placeholder : 'Loading address search…'}
       className={className}
+      autoComplete="off"
     />
   )
 }
@@ -387,6 +387,9 @@ export default function IntakeForm() {
       return saved ? { ...BLANK_FORM, ...JSON.parse(saved) } : BLANK_FORM
     } catch { return BLANK_FORM }
   })
+
+  // Kick off Maps API load immediately so it's ready before the user hits step 3
+  useEffect(() => { loadMapsApi().catch(() => {}) }, [])
 
   // Persist draft on every change
   useEffect(() => {
