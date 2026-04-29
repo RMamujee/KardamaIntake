@@ -23,7 +23,18 @@ const MOCK = false
 const BUSINESS_NAME = 'Your company name here'
 const STORAGE_KEY = 'kardama_intake_draft'
 
-const TIMES = ['7:00am', '8:00am', '9:00am', '10:00am', '11:00am', '12:00pm', '1:00pm']
+const TIMES = ['7:00am', '8:00am', '9:00am', '10:00am']
+
+const addHours = (timeStr, hours) => {
+  const [, timePart, period] = timeStr.match(/^(\d+:\d+)(am|pm)$/)
+  let [h, m] = timePart.split(':').map(Number)
+  if (period === 'pm' && h !== 12) h += 12
+  if (period === 'am' && h === 12) h = 0
+  h = (h + hours) % 24
+  const newPeriod = h < 12 ? 'am' : 'pm'
+  const displayH = h % 12 === 0 ? 12 : h % 12
+  return `${displayH}:${String(m).padStart(2, '0')}${newPeriod}`
+}
 const HOME_SIZES = ['Studio', '1 Bedroom', '2 Bedrooms', '3 Bedrooms', '4+ Bedrooms', 'Commercial']
 const FREQUENCIES = ['One-time', 'Weekly', 'Bi-weekly', 'Monthly']
 const PAYMENT_METHODS = ['Zelle', 'Venmo', 'PayPal', 'Cash']
@@ -129,11 +140,11 @@ function Step2({ form, setFormState }) {
       .catch(() => setBookedTimes([]))
   }, [form.start_date])
 
-  // Clear selected time if it just became fully booked
+  // Clear selected time if the day just became fully booked
   useEffect(() => {
     const sel = form.preferred_arrival_times[0]
     if (sel && bookedTimes.includes(sel))
-      setFormState(f => ({ ...f, preferred_arrival_times: [] }))
+      setFormState(f => ({ ...f, preferred_arrival_times: [], preferred_exit_times: [] }))
   }, [bookedTimes])
 
   const selectDate = (d) => {
@@ -147,7 +158,7 @@ function Step2({ form, setFormState }) {
   }
 
   const selectTime = (t) => {
-    setFormState(f => ({ ...f, preferred_arrival_times: [t] }))
+    setFormState(f => ({ ...f, preferred_arrival_times: [t], preferred_exit_times: [addHours(t, 8)] }))
   }
 
   const canGoBack =
@@ -245,7 +256,7 @@ function Step2({ form, setFormState }) {
                       : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400'
                   }`}
                 >
-                  {booked ? `${t} · Full` : t}
+                  {booked ? `${t} · Full` : `${t} → ${addHours(t, 8)}`}
                 </button>
               )
             })}
