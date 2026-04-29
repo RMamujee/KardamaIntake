@@ -220,51 +220,66 @@ function Step2({ form, setFormState }) {
 }
 
 function AddressInput({ value, onChange, className, placeholder }) {
-  const ref = useRef(null)
-  const onChangeRef = useRef(onChange)
-  useEffect(() => { onChangeRef.current = onChange })
+  const [suggestions, setSuggestions] = useState([])
+  const svcRef = useRef(null)
+  const timerRef = useRef(null)
 
-  useEffect(() => {
-    if (!ref.current) return
-    let ac, timer
-
-    const tryInit = () => {
-      if (!window.google?.maps?.places?.Autocomplete) {
-        timer = setTimeout(tryInit, 200)
-        return
-      }
-      try {
-        ac = new window.google.maps.places.Autocomplete(ref.current, {
-          types: ['address'],
-          componentRestrictions: { country: 'us' },
-          fields: ['formatted_address'],
-        })
-        ac.addListener('place_changed', () => {
-          const place = ac.getPlace()
-          if (place?.formatted_address) onChangeRef.current(place.formatted_address)
-        })
-      } catch {}
+  const getSvc = () => {
+    if (!svcRef.current && window.google?.maps?.places?.AutocompleteService) {
+      svcRef.current = new window.google.maps.places.AutocompleteService()
     }
+    return svcRef.current
+  }
 
-    tryInit()
+  const handleChange = (e) => {
+    const val = e.target.value
+    onChange(val)
+    clearTimeout(timerRef.current)
+    if (val.length < 3) { setSuggestions([]); return }
+    timerRef.current = setTimeout(() => {
+      const svc = getSvc()
+      if (!svc) return
+      svc.getPlacePredictions(
+        { input: val, types: ['address'], componentRestrictions: { country: 'us' } },
+        (preds, status) => {
+          setSuggestions(status === 'OK' && preds ? preds : [])
+        }
+      )
+    }, 300)
+  }
 
-    return () => {
-      clearTimeout(timer)
-      try {
-        if (ac && window.google) window.google.maps.event.clearInstanceListeners(ac)
-      } catch {}
-    }
-  }, [])
+  const pick = (pred) => {
+    onChange(pred.description)
+    setSuggestions([])
+  }
 
   return (
-    <input
-      ref={ref}
-      type="text"
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      className={className}
-    />
+    <div className="relative">
+      <input
+        type="text"
+        value={value}
+        onChange={handleChange}
+        onBlur={() => { clearTimeout(timerRef.current); setTimeout(() => setSuggestions([]), 150) }}
+        placeholder={placeholder}
+        className={className}
+      />
+      {suggestions.length > 0 && (
+        <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+          {suggestions.map(pred => (
+            <li key={pred.place_id}>
+              <button
+                type="button"
+                onMouseDown={() => pick(pred)}
+                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-teal-50 border-b border-gray-100 last:border-0"
+              >
+                <span className="font-medium">{pred.structured_formatting.main_text}</span>
+                <span className="text-gray-400 ml-1 text-xs">{pred.structured_formatting.secondary_text}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
