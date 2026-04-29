@@ -237,13 +237,13 @@ function AddressInput({ value, onChange, className, placeholder }) {
         ac = new window.google.maps.places.Autocomplete(ref.current, {
           types: ['address'],
           componentRestrictions: { country: 'us' },
-          fields: ['formatted_address'],
         })
         ac.addListener('place_changed', () => {
           const place = ac.getPlace()
-          // Fall back to the text Google already wrote into the input if
-          // formatted_address is missing (avoids saving "undefined")
-          const addr = place?.formatted_address || ref.current?.value || ''
+          // formatted_address = full dropdown selection
+          // place.name        = Enter pressed without picking a suggestion (typed text)
+          // ref.current.value = last resort — whatever is visible in the input
+          const addr = place?.formatted_address || place?.name || ref.current?.value || ''
           if (addr) onChangeRef.current(addr)
         })
       } catch {}
@@ -265,6 +265,7 @@ function AddressInput({ value, onChange, className, placeholder }) {
       type="text"
       defaultValue={value}
       onChange={e => onChange(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
       placeholder={placeholder}
       className={className}
     />
