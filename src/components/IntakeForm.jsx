@@ -95,10 +95,9 @@ function Step1({ form, set }) {
 
       <div>
         <label className={label}>City / ZIP Code *</label>
-        <input
-          type="text"
+        <CityInput
           value={form.city_zip}
-          onChange={e => set('city_zip', e.target.value)}
+          onChange={val => set('city_zip', val)}
           placeholder="Chicago, IL 60601"
           className={input}
         />
@@ -233,13 +232,44 @@ function Step2({ form, setFormState }) {
 
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY
 
+function CityInput({ value, onChange, className, placeholder }) {
+  if (GOOGLE_API_KEY) {
+    return (
+      <Autocomplete
+        apiKey={GOOGLE_API_KEY}
+        onPlaceSelected={place => {
+          const comps = place.address_components || []
+          const city = comps.find(c => c.types.includes('locality'))?.long_name || ''
+          const state = comps.find(c => c.types.includes('administrative_area_level_1'))?.short_name || ''
+          const zip = comps.find(c => c.types.includes('postal_code'))?.long_name || ''
+          onChange(zip ? `${city}, ${state} ${zip}` : place.formatted_address || place.name || '')
+        }}
+        onBlur={e => { if (e.target.value !== value) onChange(e.target.value) }}
+        options={{ types: ['(cities)'], componentRestrictions: { country: 'us' } }}
+        defaultValue={value}
+        placeholder={placeholder}
+        className={className}
+      />
+    )
+  }
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={className}
+    />
+  )
+}
+
 function AddressInput({ value, onChange, className, placeholder }) {
   if (GOOGLE_API_KEY) {
     return (
       <Autocomplete
         apiKey={GOOGLE_API_KEY}
-        onPlaceSelected={place => onChange(place.formatted_address ?? value)}
-        onChange={e => onChange(e.target.value)}
+        onPlaceSelected={place => onChange(place.formatted_address || place.name || '')}
+        onBlur={e => { if (e.target.value !== value) onChange(e.target.value) }}
         options={{ types: ['address'], componentRestrictions: { country: 'us' } }}
         defaultValue={value}
         placeholder={placeholder}
