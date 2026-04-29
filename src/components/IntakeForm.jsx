@@ -1,4 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
+
+// Module-level singleton — script only injected once across all renders
+let _mapsPromise = null
+function loadMapsApi() {
+  if (_mapsPromise) return _mapsPromise
+  if (window.google?.maps?.places) {
+    _mapsPromise = Promise.resolve()
+    return _mapsPromise
+  }
+  _mapsPromise = new Promise((resolve, reject) => {
+    window.__mapsCallback = resolve
+    const s = document.createElement('script')
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_API_KEY}&libraries=places&callback=__mapsCallback`
+    s.async = true
+    s.onerror = () => { _mapsPromise = null; reject(new Error('Maps failed to load')) }
+    document.head.appendChild(s)
+  })
+  return _mapsPromise
+}
 import { supabase } from '../lib/supabase'
 import SuccessScreen from './SuccessScreen'
 
@@ -226,33 +245,22 @@ function AddressInput({ value, onChange, className, placeholder }) {
 
   useEffect(() => {
     if (!ref.current) return
-    let ac, timer
+    let ac
 
-    const tryInit = () => {
-      if (!window.google?.maps?.places?.Autocomplete) {
-        timer = setTimeout(tryInit, 200)
-        return
-      }
-      try {
-        ac = new window.google.maps.places.Autocomplete(ref.current, {
-          types: ['address'],
-          componentRestrictions: { country: 'us' },
-        })
-        ac.addListener('place_changed', () => {
-          const place = ac.getPlace()
-          // formatted_address = full dropdown selection
-          // place.name        = Enter pressed without picking a suggestion (typed text)
-          // ref.current.value = last resort — whatever is visible in the input
-          const addr = place?.formatted_address || place?.name || ref.current?.value || ''
-          if (addr) onChangeRef.current(addr)
-        })
-      } catch {}
-    }
-
-    tryInit()
+    loadMapsApi().then(() => {
+      if (!ref.current) return
+      ac = new window.google.maps.places.Autocomplete(ref.current, {
+        types: ['address'],
+        componentRestrictions: { country: 'us' },
+      })
+      ac.addListener('place_changed', () => {
+        const place = ac.getPlace()
+        const addr = place?.formatted_address || place?.name || ref.current?.value || ''
+        if (addr) onChangeRef.current(addr)
+      })
+    }).catch(() => {})
 
     return () => {
-      clearTimeout(timer)
       try {
         if (ac && window.google) window.google.maps.event.clearInstanceListeners(ac)
       } catch {}
