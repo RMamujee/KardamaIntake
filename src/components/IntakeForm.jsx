@@ -5,36 +5,53 @@ import SuccessScreen from './SuccessScreen'
 
 const MOCK = false
 
-const BUSINESS_NAME = 'YOUR_BUSINESS'
+const BUSINESS_NAME = 'Your company name here'
 const STORAGE_KEY = 'kardama_intake_draft'
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const TIMES = ['8:00am – 10:00am', '10:00am – 12:00pm', '12:00pm – 2:00pm', '2:00pm – 4:00pm', '4:00pm – 6:00pm']
+const TIMES = ['7:00am', '8:00am', '9:00am', '10:00am', '11:00am', '12:00pm', '1:00pm']
 const HOME_SIZES = ['Studio', '1 Bedroom', '2 Bedrooms', '3 Bedrooms', '4+ Bedrooms', 'Commercial']
 const FREQUENCIES = ['One-time', 'Weekly', 'Bi-weekly', 'Monthly']
+const PAYMENT_METHODS = ['Zelle', 'Venmo', 'PayPal', 'Cash']
 const STEPS = ['About You', 'Your Schedule', 'Final Details']
 
-const tomorrow = () => {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0]
+const DOW_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DOW_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
+const fmtDate = (d) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+const parseDate = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d) }
+const buildMonthGrid = (year, month) => {
+  const first = new Date(year, month, 1)
+  const last = new Date(year, month + 1, 0)
+  const cells = []
+  for (let i = 0; i < first.getDay(); i++) cells.push(null)
+  for (let d = 1; d <= last.getDate(); d++) cells.push(new Date(year, month, d))
+  while (cells.length % 7 !== 0) cells.push(null)
+  return cells
 }
 
 const BLANK_FORM = {
-  type: 'customer',
   full_name: '',
   email: '',
   phone: '',
   city_zip: '',
   start_date: '',
   preferred_days: [],
-  preferred_times: [],
+  preferred_arrival_times: [],
+  preferred_exit_times: [],
   service_address: '',
   unit: '',
   home_size: '',
   cleaning_frequency: '',
   has_pets_allergies: '',
   additional_notes: '',
+  payment_method: '',
 }
 
 const input = "w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition-all text-gray-800 placeholder-gray-400 bg-white"
@@ -90,61 +107,126 @@ function Step1({ form, set }) {
   )
 }
 
-function Step2({ form, set, toggleArray }) {
+function Step2({ form, setFormState }) {
+  const today = startOfDay(new Date())
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() + 1)
+
+  const initial = form.start_date ? parseDate(form.start_date) : minDate
+  const [view, setView] = useState({ year: initial.getFullYear(), month: initial.getMonth() })
+
+  const grid = buildMonthGrid(view.year, view.month)
+  const selectedTime = form.preferred_arrival_times[0] || ''
+
+  const selectDate = (d) => {
+    setFormState(f => ({
+      ...f,
+      start_date: fmtDate(d),
+      preferred_days: [DOW_FULL[d.getDay()]],
+      preferred_arrival_times: [],
+      preferred_exit_times: [],
+    }))
+  }
+
+  const selectTime = (t) => {
+    setFormState(f => ({ ...f, preferred_arrival_times: [t] }))
+  }
+
+  const canGoBack =
+    view.year > today.getFullYear() ||
+    (view.year === today.getFullYear() && view.month > today.getMonth())
+
+  const prevMonth = () => setView(v =>
+    v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 }
+  )
+  const nextMonth = () => setView(v =>
+    v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 }
+  )
+
   return (
     <div className="space-y-6">
       <div>
-        <label className={label}>Preferred Start Date *</label>
-        <input
-          type="date"
-          value={form.start_date}
-          min={tomorrow()}
-          onChange={e => set('start_date', e.target.value)}
-          className={input}
-        />
-      </div>
-
-      <div>
-        <p className={label}>Preferred Days *</p>
-        <p className="text-xs text-gray-400 mb-3">Select all that apply</p>
-        <div className="grid grid-cols-4 gap-2">
-          {DAYS.map(day => (
+        <p className={label}>Select a date *</p>
+        <div className="border border-gray-200 rounded-2xl p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-4">
             <button
-              key={day}
               type="button"
-              onClick={() => toggleArray('preferred_days', day)}
-              className={`py-2 px-1 rounded-lg text-sm font-medium transition-all ${
-                form.preferred_days.includes(day)
-                  ? 'bg-teal-500 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              onClick={prevMonth}
+              disabled={!canGoBack}
+              className="w-8 h-8 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-gray-600"
+              aria-label="Previous month"
             >
-              {day.slice(0, 3)}
+              ‹
             </button>
-          ))}
+            <span className="text-sm font-semibold text-gray-800">
+              {MONTHS[view.month]} {view.year}
+            </span>
+            <button
+              type="button"
+              onClick={nextMonth}
+              className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-600"
+              aria-label="Next month"
+            >
+              ›
+            </button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {DOW_SHORT.map(d => (
+              <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {grid.map((d, i) => {
+              if (!d) return <div key={i} />
+              const past = startOfDay(d) < minDate
+              const sel = fmtDate(d) === form.start_date
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => !past && selectDate(d)}
+                  disabled={past}
+                  className={`aspect-square rounded-full text-sm font-medium transition-all ${
+                    sel
+                      ? 'bg-teal-500 text-white shadow-sm'
+                      : past
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-gray-700 hover:bg-teal-50'
+                  }`}
+                >
+                  {d.getDate()}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
-      <div>
-        <p className={label}>Preferred Arrival Window *</p>
-        <p className="text-xs text-gray-400 mb-3">Select all that work for you</p>
-        <div className="space-y-2">
-          {TIMES.map(time => (
-            <button
-              key={time}
-              type="button"
-              onClick={() => toggleArray('preferred_times', time)}
-              className={`w-full p-3 rounded-xl text-left text-sm font-medium transition-all ${
-                form.preferred_times.includes(time)
-                  ? 'bg-teal-500 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {time}
-            </button>
-          ))}
+      {form.start_date && (
+        <div>
+          <p className={label}>Select a time *</p>
+          <p className="text-xs text-gray-400 mb-3">
+            {parseDate(form.start_date).toLocaleDateString('en-US', {
+              weekday: 'long', month: 'long', day: 'numeric',
+            })}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {TIMES.map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => selectTime(t)}
+                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                  selectedTime === t
+                    ? 'bg-teal-500 text-white border-teal-500 shadow-sm'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -236,6 +318,26 @@ function Step3({ form, set }) {
       </div>
 
       <div>
+        <label className={label}>Preferred payment method *</label>
+        <div className="grid grid-cols-2 gap-2">
+          {PAYMENT_METHODS.map(m => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => set('payment_method', m)}
+              className={`py-3 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                form.payment_method === m
+                  ? 'bg-teal-500 text-white border-teal-500 shadow-sm'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400'
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
         <label className={label}>Additional notes or special requests</label>
         <textarea
           value={form.additional_notes}
@@ -289,14 +391,14 @@ export default function IntakeForm() {
       if (!form.city_zip.trim()) return 'City / ZIP Code is required.'
     }
     if (s === 1) {
-      if (!form.start_date) return 'Please select a preferred start date.'
-      if (form.preferred_days.length === 0) return 'Please select at least one preferred day.'
-      if (form.preferred_times.length === 0) return 'Please select at least one preferred time.'
+      if (!form.start_date) return 'Please select a date.'
+      if (form.preferred_arrival_times.length === 0) return 'Please select a time.'
     }
     if (s === 2) {
       if (!form.service_address.trim()) return 'Service address is required.'
       if (!form.home_size) return 'Please select your home size.'
       if (!form.cleaning_frequency) return 'Please select a cleaning frequency.'
+      if (!form.payment_method) return 'Please select a payment method.'
     }
     return null
   }
@@ -333,17 +435,17 @@ export default function IntakeForm() {
   if (submitted) return <SuccessScreen name={form.full_name} businessName={BUSINESS_NAME} />
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 flex items-center justify-center p-3 sm:p-4">
       <div className="w-full max-w-md">
 
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{BUSINESS_NAME}</h1>
-          <p className="text-gray-500 mt-1">Request a cleaning</p>
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{BUSINESS_NAME}</h1>
+          <p className="text-sm sm:text-base text-gray-500 mt-1">Request a cleaning</p>
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-start justify-center mb-8">
+        <div className="flex items-start justify-center mb-6 sm:mb-8">
           {STEPS.map((stepLabel, i) => (
             <div key={i} className="flex items-center">
               <div className="flex flex-col items-center">
@@ -363,7 +465,7 @@ export default function IntakeForm() {
                 </span>
               </div>
               {i < STEPS.length - 1 && (
-                <div className={`w-14 h-0.5 mx-1 mb-4 transition-all ${
+                <div className={`w-10 sm:w-14 h-0.5 mx-1 sm:mb-4 transition-all ${
                   i < step ? 'bg-teal-500' : 'bg-gray-200'
                 }`} />
               )}
@@ -372,8 +474,8 @@ export default function IntakeForm() {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-teal-100/50 p-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">{STEPS[step]}</h2>
+        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl shadow-teal-100/50 p-5 sm:p-8">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-5 sm:mb-6">{STEPS[step]}</h2>
 
           {error && (
             <div className="mb-5 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm">
@@ -382,7 +484,7 @@ export default function IntakeForm() {
           )}
 
           {step === 0 && <Step1 form={form} set={set} />}
-          {step === 1 && <Step2 form={form} set={set} toggleArray={toggleArray} />}
+          {step === 1 && <Step2 form={form} setFormState={setFormState} />}
           {step === 2 && <Step3 form={form} set={set} />}
 
           <div className="flex gap-3 mt-8">
