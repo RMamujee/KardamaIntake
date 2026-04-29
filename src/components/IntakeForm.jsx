@@ -463,9 +463,10 @@ export default function IntakeForm() {
   const validate = (s) => {
     if (s === 0) {
       if (!form.full_name.trim()) return 'Full name is required.'
-      if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-        return 'A valid email address is required.'
-      if (!form.phone.trim()) return 'Phone number is required.'
+      if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email))
+        return 'Please enter a valid email address (e.g. jane@example.com).'
+      if (form.phone.replace(/\D/g, '').length < 10)
+        return 'Please enter a valid 10-digit phone number.'
     }
     if (s === 1) {
       if (!form.start_date) return 'Please select a date.'
