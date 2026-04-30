@@ -24,7 +24,14 @@ const MOCK = false
 const BUSINESS_NAME = 'Kardama Cleaning'
 const STORAGE_KEY = 'kardama_intake_draft'
 
-const TIMES = ['7:00am', '8:00am', '9:00am', '10:00am']
+const TIMES = ['8:00am', '9:00am', '10:00am', '11:00am', '1:00pm', '2:00pm']
+
+const SERVICE_TYPES = [
+  { value: 'standard',          label: 'Standard Clean',   desc: 'Regular home cleaning' },
+  { value: 'deep',              label: 'Deep Clean',        desc: 'Thorough top-to-bottom' },
+  { value: 'move-out',          label: 'Move-Out Clean',    desc: 'Full empty-home clean' },
+  { value: 'airbnb',            label: 'Airbnb Turnover',   desc: 'Quick guest-ready reset' },
+]
 
 const addMinutes = (timeStr, mins) => {
   const [, timePart, period] = timeStr.match(/^(\d+:\d+)(am|pm)$/)
@@ -78,6 +85,7 @@ const BLANK_FORM = {
   full_name: '',
   email: '',
   phone: '',
+  service_type: '',
   start_date: '',
   preferred_days: [],
   preferred_arrival_times: [],
@@ -128,6 +136,27 @@ function Step1({ form, set }) {
           placeholder="(555) 000-0000"
           className={input}
         />
+      </div>
+
+      <div>
+        <label className={label}>Type of Cleaning *</label>
+        <div className="grid grid-cols-2 gap-2">
+          {SERVICE_TYPES.map(s => (
+            <button
+              key={s.value}
+              type="button"
+              onClick={() => set('service_type', s.value)}
+              className={`py-3 px-3 rounded-xl text-left transition-all border-2 ${
+                form.service_type === s.value
+                  ? 'bg-teal-500 text-white border-teal-500 shadow-sm'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400'
+              }`}
+            >
+              <div className="text-sm font-medium">{s.label}</div>
+              <div className={`text-xs mt-0.5 ${form.service_type === s.value ? 'text-teal-100' : 'text-gray-400'}`}>{s.desc}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
     </div>
@@ -514,6 +543,7 @@ export default function IntakeForm() {
         return 'Please enter a valid email address (e.g. jane@example.com).'
       if (form.phone.replace(/\D/g, '').length < 10)
         return 'Please enter a valid 10-digit phone number.'
+      if (!form.service_type) return 'Please select a type of cleaning.'
     }
     if (s === 1) {
       if (!form.home_size) return 'Please select your home size.'
@@ -543,10 +573,49 @@ export default function IntakeForm() {
     setError('')
     setLoading(true)
     try {
-      const { error: fnError, data } = await supabase.functions.invoke('submit-intake', {
-        body: form,
+      // Normalize arrival time from 12h display (e.g. '8:00am') to 24h ('08:00')
+      const rawTime = form.preferred_arrival_times[0] || ''
+      const to24h = (t) => {
+        const m = t.match(/^(\d{1,2}):(\d{2})(am|pm)$/i)
+        if (!m) return t
+        let h = parseInt(m[1]), min = parseInt(m[2])
+        const p = m[3].toLowerCase()
+        if (p === 'pm' && h !== 12) h += 12
+        if (p === 'am' && h === 12) h = 0
+        return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+      }
+
+      // Extract city from Google Places address ("123 Main St, Long Beach, CA 90802, USA")
+      const parts = form.service_address.split(',')
+      const city = parts.length >= 3 ? parts[parts.length - 3]?.trim() || null : null
+
+      const payload = {
+        customer_name:  form.full_name.trim(),
+        customer_email: form.email.trim(),
+        customer_phone: form.phone.trim(),
+        address:        form.service_address.trim(),
+        city,
+        service_type:   form.service_type || 'standard',
+        preferred_date: form.start_date,
+        preferred_time: to24h(rawTime),
+        notes: [
+          form.unit              && `Unit: ${form.unit}`,
+          form.home_size         && `Home size: ${form.home_size}`,
+          form.cleaning_frequency && `Frequency: ${form.cleaning_frequency}`,
+          form.has_pets_allergies && `Pets/allergies: ${form.has_pets_allergies}`,
+          form.payment_method    && `Payment: ${form.payment_method}`,
+          form.additional_notes,
+        ].filter(Boolean).join('\n'),
+      }
+
+      const res = await fetch('https://kardama-ai.vercel.app/api/intake', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
       })
-      if (fnError) throw new Error(data?.error || fnError.message || 'Something went wrong.')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Something went wrong.')
+
       try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STORAGE_KEY + '_step') } catch {}
       setSubmitted(true)
     } catch (e) {
