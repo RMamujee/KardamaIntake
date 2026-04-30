@@ -545,6 +545,10 @@ export default function IntakeForm() {
         return 'Please enter a valid email address (e.g. jane@example.com).'
       if (form.phone.replace(/\D/g, '').length < 10)
         return 'Please enter a valid 10-digit phone number.'
+      const _digits = form.phone.replace(/\D/g, '')
+      const _base = _digits.length === 11 && _digits.startsWith('1') ? _digits.slice(1) : _digits
+      if (['911', '112', '999', '000', '411', '611', '711', '811'].some(p => _base === p || _base.startsWith(p)))
+        return 'Please enter a valid phone number.'
       if (!form.service_type) return 'Please select a type of cleaning.'
     }
     if (s === 1) {
