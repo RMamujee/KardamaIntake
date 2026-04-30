@@ -53,11 +53,15 @@ const fmtLong = (dateStr) =>
 const label = 'block text-sm font-medium text-gray-700 mb-1.5'
 
 export default function CancelRescheduleForm() {
-  const bookingId = new URLSearchParams(window.location.search).get('manage')
+  const _qs = new URLSearchParams(window.location.search)
+  const bookingId = _qs.get('manage')
+  const initialView = _qs.get('action') === 'reschedule' ? 'reschedule'
+    : _qs.get('action') === 'cancel' ? 'confirming-cancel'
+    : 'choice'
 
   const [booking, setBooking] = useState(null)
   const [fetchState, setFetchState] = useState('loading') // 'loading' | 'ready' | 'error'
-  const [view, setView] = useState('choice') // 'choice' | 'reschedule' | 'done'
+  const [view, setView] = useState(initialView) // 'choice' | 'reschedule' | 'confirming-cancel' | 'done'
   const [doneAction, setDoneAction] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -118,6 +122,9 @@ export default function CancelRescheduleForm() {
     </div>
   )
 
+  const bookingDateStr = booking?.preferred_date ? fmtLong(booking.preferred_date) : '—'
+  const bookingTimeStr = to12h(booking?.preferred_time || '')
+
   if (fetchState === 'loading') return shell(
     <div className="text-center py-20 text-gray-400 text-sm">Loading your booking…</div>
   )
@@ -143,9 +150,6 @@ export default function CancelRescheduleForm() {
       <a href="/" className="text-teal-500 hover:underline text-sm">← Book a new cleaning</a>
     </div>
   )
-
-  const bookingDateStr = booking.preferred_date ? fmtLong(booking.preferred_date) : '—'
-  const bookingTimeStr = to12h(booking.preferred_time || '')
 
   if (view === 'reschedule') {
     const grid = buildMonthGrid(calView.year, calView.month)
@@ -255,6 +259,48 @@ export default function CancelRescheduleForm() {
       </>
     )
   }
+
+  // 'confirming-cancel' view — one-tap confirm so email link doesn't cancel accidentally
+  if (view === 'confirming-cancel') return shell(
+    <>
+      <div className="text-center mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Cancel Booking</h1>
+        <p className="text-sm sm:text-base text-gray-500 mt-1">{booking.customer_name}</p>
+      </div>
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl shadow-teal-100/50 p-5 sm:p-8">
+        <div className="p-4 bg-teal-50 rounded-xl mb-6">
+          <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-2">Booking to cancel</p>
+          <p className="text-teal-800 font-medium text-sm">{bookingDateStr}</p>
+          {bookingTimeStr && <p className="text-teal-700 text-sm mt-0.5">Arrival: {bookingTimeStr}</p>}
+        </div>
+
+        {submitError && (
+          <div className="mb-5 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm">{submitError}</div>
+        )}
+
+        {booking.status === 'cancelled' ? (
+          <p className="text-center text-gray-500 text-sm py-4">This booking has already been cancelled.</p>
+        ) : (
+          <div className="space-y-3">
+            <button onClick={handleCancel} disabled={submitting}
+              className="w-full py-3 px-4 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 active:scale-95 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+              {submitting ? 'Cancelling…' : 'Yes, cancel my booking'}
+            </button>
+            <button onClick={() => setView('choice')}
+              className="w-full py-3 px-4 border-2 border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-all">
+              Keep my booking
+            </button>
+          </div>
+        )}
+      </div>
+      <p className="text-center text-xs text-gray-400 mt-4">
+        <a href="/" className="hover:text-teal-500 transition-colors">← Back to booking form</a>
+      </p>
+      <p className="text-center text-xs text-gray-300 mt-2">
+        Powered by <span className="font-medium text-teal-400">Kardama</span>
+      </p>
+    </>
+  )
 
   // 'choice' view — default
   return shell(
