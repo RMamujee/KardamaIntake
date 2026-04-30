@@ -1,0 +1,177 @@
+{
+  "name": "KardamaIntake New Booking",
+  "nodes": [
+    {
+      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "name": "On New Booking",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 400],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "kardama-new-booking",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+    },
+    {
+      "id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "name": "Normalize Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400],
+      "parameters": {
+        "jsCode": "// Support both Kardama.ai webhook (camelCase) and Supabase DB webhook (snake_case)\nconst raw = $input.first().json.body?.record ?? $input.first().json;\n\nconst name    = raw.customerName    || raw.customer_name    || '';\nconst email   = raw.customerEmail   || raw.customer_email   || '';\nconst phone   = raw.customerPhone   || raw.customer_phone   || '';\nconst addr    = raw.address         || '';\nconst unit    = raw.unit            || '';\nconst city    = raw.city            || '';\nconst hSize   = raw.homeSize        || raw.home_size        || '';\nconst freq    = raw.cleaningFrequency || raw.cleaning_frequency || '';\nconst payment = raw.paymentMethod   || raw.payment_method   || 'Not specified';\nconst pets    = raw.hasPetsAllergies || raw.has_pets_allergies || '';\nconst notes   = raw.notes           || '';\nconst date    = raw.preferredDate   || raw.preferred_date   || '';\nconst svcType = raw.serviceType     || raw.service_type     || '';\n\nconst manageUrl     = raw.manageUrl     || '';\nconst rescheduleUrl = raw.rescheduleUrl || '';\nconst cancelUrl     = raw.cancelUrl     || '';\n\n// Parse time from either 24h ('08:00') or 12h ('8:00am')\nfunction parseTime(t) {\n  if (!t) return '10:00';\n  const m24 = String(t).match(/^(\\d{1,2}):(\\d{2})$/);\n  if (m24) return `${String(parseInt(m24[1])).padStart(2,'0')}:${m24[2]}`;\n  const m12 = String(t).match(/(\\d+):(\\d+)(am|pm)/i);\n  if (!m12) return '10:00';\n  let h = parseInt(m12[1]);\n  if (m12[3].toLowerCase() === 'pm' && h !== 12) h += 12;\n  if (m12[3].toLowerCase() === 'am' && h === 12) h = 0;\n  return `${String(h).padStart(2,'0')}:${m12[2]}`;\n}\n\nfunction to12h(t) {\n  const m = String(t).match(/^(\\d{1,2}):(\\d{2})$/);\n  if (!m) return t;\n  let h = parseInt(m[1]); const min = m[2];\n  const p = h < 12 ? 'AM' : 'PM';\n  if (h === 0) h = 12; else if (h > 12) h -= 12;\n  return `${h}:${min} ${p}`;\n}\n\nfunction addHours(time, n) {\n  const [h, m] = time.split(':').map(Number);\n  return `${String(Math.min(h + n, 23)).padStart(2,'0')}:${String(m).padStart(2,'0')}`;\n}\n\nconst rawTime  = raw.preferredTime || (raw.preferred_arrival_times || [])[0];\nconst start24  = parseTime(rawTime);\nconst end24    = addHours(start24, 2);\nconst display  = to12h(start24);\nconst fullAddr = unit ? `${addr}, Unit ${unit}` : addr;\n\nreturn [{\n  json: {\n    id:                   raw.bookingId || raw.id,\n    customer_name:        name,\n    first_name:           name.split(' ')[0],\n    customer_email:       email,\n    customer_phone:       phone,\n    city,\n    address:              fullAddr,\n    home_size:            hSize,\n    cleaning_frequency:   freq,\n    service_type:         svcType,\n    payment_method:       payment,\n    has_pets_allergies:   pets,\n    notes,\n    preferred_date:       date,\n    arrival_time_display: display,\n    start_datetime:       `${date}T${start24}:00`,\n    end_datetime:         `${date}T${end24}:00`,\n    manage_url:           manageUrl,\n    reschedule_url:       rescheduleUrl,\n    cancel_url:           cancelUrl\n  }\n}];"
+      }
+    },
+    {
+      "id": "6ba7b811-9dad-11d1-80b4-00c04fd430c8",
+      "name": "Create Calendar Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [720, 160],
+      "parameters": {
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $vars.GOOGLE_CALENDAR_ID }}",
+          "mode": "id"
+        },
+        "start": "={{ $json.start_datetime }}",
+        "end": "={{ $json.end_datetime }}",
+        "additionalFields": {
+          "summary": "=Cleaning - {{ $json.customer_name }}",
+          "description": "=Name: {{ $json.customer_name }}\nPhone: {{ $json.customer_phone }}\nEmail: {{ $json.customer_email }}\nAddress: {{ $json.address }}\nHome: {{ $json.home_size }}\nFrequency: {{ $json.cleaning_frequency }}\nPayment: {{ $json.payment_method }}",
+          "location": "={{ $json.address }}"
+        }
+      }
+    },
+    {
+      "id": "6ba7b812-9dad-11d1-80b4-00c04fd430c8",
+      "name": "Save Calendar Event ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [980, 160],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $vars.SUPABASE_URL }}/rest/v1/booking_requests?id=eq.{{ $('Normalize Data').item.json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $vars.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $vars.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "calendar_event_id", "value": "={{ $json.id }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6ba7b813-9dad-11d1-80b4-00c04fd430c8",
+      "name": "Owner Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 360],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $vars.RESEND_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "from", "value": "={{ $vars.BUSINESS_NAME }} Intake <onboarding@resend.dev>" },
+            { "name": "to", "value": "={{ $vars.OWNER_EMAIL }}" },
+            { "name": "reply_to", "value": "={{ $json.customer_email }}" },
+            { "name": "subject", "value": "=New cleaning request — {{ $json.customer_name }}" },
+            { "name": "html", "value": "=<div style=\"font-family:sans-serif;max-width:560px;margin:0 auto;color:#111\"><h2 style=\"margin-bottom:4px\">New Cleaning Request</h2><p style=\"color:#666;margin-top:0\">{{ $json.preferred_date }} at {{ $json.arrival_time_display }}</p><hr style=\"border:none;border-top:1px solid #eee;margin:16px 0\"/><p><strong>Name:</strong> {{ $json.customer_name }}</p><p><strong>Email:</strong> <a href=\"mailto:{{ $json.customer_email }}\">{{ $json.customer_email }}</a></p><p><strong>Phone:</strong> {{ $json.customer_phone }}</p><p><strong>Address:</strong> {{ $json.address }}</p><p><strong>City:</strong> {{ $json.city }}</p><hr style=\"border:none;border-top:1px solid #eee;margin:16px 0\"/><p><strong>Home Size:</strong> {{ $json.home_size }}</p><p><strong>Frequency:</strong> {{ $json.cleaning_frequency }}</p><p><strong>Arrival:</strong> {{ $json.arrival_time_display }}</p><p><strong>Payment:</strong> {{ $json.payment_method }}</p>{{ $json.has_pets_allergies ? '<p><strong>Pets/Allergies:</strong> ' + $json.has_pets_allergies + '</p>' : '' }}{{ $json.notes ? '<p><strong>Notes:</strong> ' + $json.notes + '</p>' : '' }}<hr style=\"border:none;border-top:1px solid #eee;margin:16px 0\"/><p style=\"color:#888;font-size:13px\">Booking ID: {{ $json.id }}</p></div>" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6ba7b814-9dad-11d1-80b4-00c04fd430c8",
+      "name": "Customer Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 560],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $vars.RESEND_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "from", "value": "={{ $vars.BUSINESS_NAME }} <onboarding@resend.dev>" },
+            { "name": "to", "value": "={{ $json.customer_email }}" },
+            { "name": "reply_to", "value": "={{ $vars.OWNER_EMAIL }}" },
+            { "name": "subject", "value": "=We got your cleaning request — {{ $vars.BUSINESS_NAME }}" },
+            { "name": "html", "value": "=<div style=\"font-family:sans-serif;max-width:520px;margin:0 auto;color:#111\"><h2 style=\"color:#0d9488\">Thanks, {{ $json.first_name }}!</h2><p>We received your cleaning request and will reach out to confirm shortly.</p><div style=\"background:#f0fdfa;border-radius:12px;padding:16px 20px;margin:20px 0\"><p style=\"margin:0 0 8px;font-weight:600;color:#0d9488\">Your booking details</p><p style=\"margin:4px 0\"><strong>Date:</strong> {{ $json.preferred_date }}</p><p style=\"margin:4px 0\"><strong>Arrival:</strong> {{ $json.arrival_time_display }}</p><p style=\"margin:4px 0\"><strong>Address:</strong> {{ $json.address }}</p><p style=\"margin:4px 0\"><strong>Home size:</strong> {{ $json.home_size }}</p><p style=\"margin:4px 0\"><strong>Frequency:</strong> {{ $json.cleaning_frequency }}</p></div><p style=\"color:#444\">Need to make a change before we confirm?</p><table style=\"border-collapse:collapse;margin-top:8px\"><tr><td style=\"padding-right:12px\"><a href=\"{{ $json.reschedule_url }}\" style=\"display:inline-block;background:#0d9488;color:#fff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px\">Reschedule</a></td><td><a href=\"{{ $json.cancel_url }}\" style=\"display:inline-block;background:#fff;color:#ef4444;padding:9px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;border:2px solid #fecaca\">Cancel Booking</a></td></tr></table><p style=\"color:#999;font-size:12px;margin-top:32px\">Questions? Reply to this email or call us directly.</p></div>" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6ba7b815-9dad-11d1-80b4-00c04fd430c8",
+      "name": "Owner SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [720, 760],
+      "parameters": {
+        "from": "={{ $vars.TWILIO_FROM_NUMBER }}",
+        "to": "={{ $vars.OWNER_PHONE }}",
+        "message": "=New cleaning request:\n{{ $json.customer_name }} | {{ $json.customer_phone }}\n{{ $json.preferred_date }} at {{ $json.arrival_time_display }}\n{{ $json.address }}\n{{ $json.home_size }} | {{ $json.cleaning_frequency }}\nPayment: {{ $json.payment_method }}"
+      }
+    }
+  ],
+  "connections": {
+    "On New Booking": {
+      "main": [
+        [{ "node": "Normalize Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Normalize Data": {
+      "main": [
+        [
+          { "node": "Create Calendar Event", "type": "main", "index": 0 },
+          { "node": "Owner Email", "type": "main", "index": 0 },
+          { "node": "Customer Email", "type": "main", "index": 0 },
+          { "node": "Owner SMS", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Create Calendar Event": {
+      "main": [
+        [{ "node": "Save Calendar Event ID", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

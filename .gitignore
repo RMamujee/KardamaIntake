@@ -4,4 +4,3 @@ dist
 .env.local
 *.local
 .vercel
-n8n/
