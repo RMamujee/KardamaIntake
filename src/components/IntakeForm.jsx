@@ -25,17 +25,28 @@ const STORAGE_KEY = 'kardama_intake_draft'
 
 const TIMES = ['7:00am', '8:00am', '9:00am', '10:00am']
 
-const addHours = (timeStr, hours) => {
+const addMinutes = (timeStr, mins) => {
   const [, timePart, period] = timeStr.match(/^(\d+:\d+)(am|pm)$/)
   let [h, m] = timePart.split(':').map(Number)
   if (period === 'pm' && h !== 12) h += 12
   if (period === 'am' && h === 12) h = 0
-  h = (h + hours) % 24
-  const newPeriod = h < 12 ? 'am' : 'pm'
-  const displayH = h % 12 === 0 ? 12 : h % 12
-  return `${displayH}:${String(m).padStart(2, '0')}${newPeriod}`
+  let total = ((h * 60 + m + mins) % (24 * 60) + 24 * 60) % (24 * 60)
+  const newH = Math.floor(total / 60)
+  const newM = total % 60
+  const newPeriod = newH < 12 ? 'am' : 'pm'
+  const displayH = newH % 12 === 0 ? 12 : newH % 12
+  return `${displayH}:${String(newM).padStart(2, '0')}${newPeriod}`
 }
 const HOME_SIZES = ['Studio', '1 Bedroom', '2 Bedrooms', '3 Bedrooms', '4+ Bedrooms', 'Commercial']
+// Cleaning duration for a 2-person team, including a 30-min commute buffer.
+const HOME_SIZE_DURATION_MIN = {
+  'Studio': 120,
+  '1 Bedroom': 150,
+  '2 Bedrooms': 180,
+  '3 Bedrooms': 210,
+  '4+ Bedrooms': 270,
+  'Commercial': 270,
+}
 const FREQUENCIES = ['One-time', 'Weekly', 'Bi-weekly', 'Monthly']
 const PAYMENT_METHODS = ['Zelle', 'Venmo', 'PayPal', 'Cash']
 const STEPS = ['About You', 'Your Schedule', 'Final Details']
@@ -122,7 +133,7 @@ function Step1({ form, set }) {
   )
 }
 
-function Step2({ form, setFormState }) {
+function Step2({ form, set, setFormState }) {
   const today = startOfDay(new Date())
   const minDate = new Date(today); minDate.setDate(minDate.getDate() + 1)
 
@@ -132,13 +143,18 @@ function Step2({ form, setFormState }) {
 
   const grid = buildMonthGrid(view.year, view.month)
   const selectedTime = form.preferred_arrival_times[0] || ''
+  const durationMin = HOME_SIZE_DURATION_MIN[form.home_size]
+  const showSchedule = !!durationMin
 
   useEffect(() => {
-    if (!form.start_date) { setBookedTimes([]); return }
-    supabase.rpc('get_booked_slots', { check_date: form.start_date })
+    if (!form.start_date || !durationMin) { setBookedTimes([]); return }
+    supabase.rpc('get_booked_slots', {
+      check_date: form.start_date,
+      duration_minutes: durationMin,
+    })
       .then(({ data }) => setBookedTimes(Array.isArray(data) ? data : []))
       .catch(() => setBookedTimes([]))
-  }, [form.start_date])
+  }, [form.start_date, durationMin])
 
   // Clear selected time if the day just became fully booked
   useEffect(() => {
@@ -146,6 +162,16 @@ function Step2({ form, setFormState }) {
     if (sel && bookedTimes.includes(sel))
       setFormState(f => ({ ...f, preferred_arrival_times: [], preferred_exit_times: [] }))
   }, [bookedTimes])
+
+  // If home size changes, recompute the exit time for any already-picked arrival
+  useEffect(() => {
+    const sel = form.preferred_arrival_times[0]
+    if (!sel || !durationMin) return
+    const expected = addMinutes(sel, durationMin)
+    if (form.preferred_exit_times[0] !== expected) {
+      setFormState(f => ({ ...f, preferred_exit_times: [expected] }))
+    }
+  }, [durationMin])
 
   const selectDate = (d) => {
     setFormState(f => ({
@@ -158,7 +184,11 @@ function Step2({ form, setFormState }) {
   }
 
   const selectTime = (t) => {
-    setFormState(f => ({ ...f, preferred_arrival_times: [t], preferred_exit_times: [addHours(t, 8)] }))
+    setFormState(f => ({
+      ...f,
+      preferred_arrival_times: [t],
+      preferred_exit_times: [addMinutes(t, durationMin)],
+    }))
   }
 
   const canGoBack =
@@ -174,6 +204,29 @@ function Step2({ form, setFormState }) {
 
   return (
     <div className="space-y-6">
+      <div>
+        <label className={label}>Home Size *</label>
+        <select
+          value={form.home_size}
+          onChange={e => set('home_size', e.target.value)}
+          className={input + " appearance-none cursor-pointer"}
+        >
+          <option value="">Select home size</option>
+          {HOME_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <p className="text-xs text-gray-400 mt-1.5">
+          We use this to find time slots that fit your home.
+        </p>
+      </div>
+
+      {!showSchedule && (
+        <div className="text-center text-sm text-gray-400 py-6">
+          Pick your home size to see available times.
+        </div>
+      )}
+
+      {showSchedule && (
+      <>
       <div>
         <p className={label}>Select a date *</p>
         <div className="border border-gray-200 rounded-2xl p-3 sm:p-4">
@@ -256,12 +309,14 @@ function Step2({ form, setFormState }) {
                       : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400'
                   }`}
                 >
-                  {booked ? `${t} · Full` : `${t} → ${addHours(t, 8)}`}
+                  {booked ? `${t} · Full` : `${t} → ${addMinutes(t, durationMin)}`}
                 </button>
               )
             })}
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   )
@@ -355,18 +410,6 @@ function Step3({ form, set }) {
           placeholder="Apt 4B"
           className={input}
         />
-      </div>
-
-      <div>
-        <label className={label}>Home Size *</label>
-        <select
-          value={form.home_size}
-          onChange={e => set('home_size', e.target.value)}
-          className={input + " appearance-none cursor-pointer"}
-        >
-          <option value="">Select home size</option>
-          {HOME_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
       </div>
 
       <div>
@@ -469,12 +512,12 @@ export default function IntakeForm() {
         return 'Please enter a valid 10-digit phone number.'
     }
     if (s === 1) {
+      if (!form.home_size) return 'Please select your home size.'
       if (!form.start_date) return 'Please select a date.'
       if (form.preferred_arrival_times.length === 0) return 'Please select a time.'
     }
     if (s === 2) {
       if (!form.service_address.trim()) return 'Service address is required.'
-      if (!form.home_size) return 'Please select your home size.'
       if (!form.cleaning_frequency) return 'Please select a cleaning frequency.'
       if (!form.payment_method) return 'Please select a payment method.'
     }
@@ -562,7 +605,7 @@ export default function IntakeForm() {
           )}
 
           {step === 0 && <Step1 form={form} set={set} />}
-          {step === 1 && <Step2 form={form} setFormState={setFormState} />}
+          {step === 1 && <Step2 form={form} set={set} setFormState={setFormState} />}
           {step === 2 && <Step3 form={form} set={set} />}
 
           <div className="flex gap-3 mt-8">

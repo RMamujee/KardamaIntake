@@ -22,6 +22,15 @@ interface FormData {
   payment_method?: string
 }
 
+const HOME_SIZE_DURATION_MIN: Record<string, number> = {
+  'Studio': 120,
+  '1 Bedroom': 150,
+  '2 Bedrooms': 180,
+  '3 Bedrooms': 210,
+  '4+ Bedrooms': 270,
+  'Commercial': 270,
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -35,23 +44,19 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Server-side capacity check — prevents race-condition double-bookings
-    const [{ count }, { data: setting }] = await Promise.all([
-      supabase
-        .from('booking_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('preferred_date', form.start_date),
-      supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'max_teams')
-        .single(),
-    ])
-
-    const maxTeams = parseInt(setting?.value ?? '5', 10)
-    if ((count ?? 0) >= maxTeams) {
+    // Server-side capacity check — prevents race-condition double-bookings.
+    // Uses the per-slot RPC so realistic durations (per home size + commute
+    // buffer) are factored in rather than the prior all-day overlap heuristic.
+    const durationMinutes = HOME_SIZE_DURATION_MIN[form.home_size] ?? 180
+    const arrival = form.preferred_arrival_times?.[0]
+    const { data: blocked, error: blockedErr } = await supabase.rpc('get_booked_slots', {
+      check_date: form.start_date,
+      duration_minutes: durationMinutes,
+    })
+    if (blockedErr) throw new Error(`Capacity check failed: ${blockedErr.message}`)
+    if (arrival && Array.isArray(blocked) && blocked.includes(arrival)) {
       return new Response(
-        JSON.stringify({ error: 'Sorry, this date is fully booked. Please choose another date.' }),
+        JSON.stringify({ error: 'Sorry, this time slot just filled up. Please choose another time.' }),
         { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
