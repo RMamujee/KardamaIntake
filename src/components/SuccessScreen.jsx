@@ -17,7 +17,10 @@ export default function SuccessScreen({ name, businessName }) {
             </p>
           </div>
         </div>
-        <p className="text-center text-xs text-gray-300 mt-6">
+        <p className="text-center text-xs text-gray-400 mt-4">
+          Need to <a href="/?cancel=1" className="text-teal-500 hover:underline">cancel or reschedule</a>?
+        </p>
+        <p className="text-center text-xs text-gray-300 mt-2">
           Powered by <span className="font-medium text-teal-400">Kardama</span>
         </p>
       </div>

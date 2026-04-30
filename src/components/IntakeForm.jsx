@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import SuccessScreen from './SuccessScreen'
+import CancelRescheduleForm from './CancelRescheduleForm'
 
 // Singleton — injects the Maps script once, resolves when places library is ready
 let _mapsPromise = null
@@ -20,7 +21,7 @@ function loadMapsApi() {
 
 const MOCK = false
 
-const BUSINESS_NAME = 'Your company name here'
+const BUSINESS_NAME = 'Kardama Cleaning'
 const STORAGE_KEY = 'kardama_intake_draft'
 
 const TIMES = ['7:00am', '8:00am', '9:00am', '10:00am']
@@ -470,6 +471,9 @@ function Step3({ form, set }) {
 }
 
 export default function IntakeForm() {
+  if (new URLSearchParams(window.location.search).has('cancel'))
+    return <CancelRescheduleForm />
+
   const [step, setStep] = useState(() => {
     try { return Number(localStorage.getItem(STORAGE_KEY + '_step') ?? 0) } catch { return 0 }
   })
@@ -638,6 +642,9 @@ export default function IntakeForm() {
 
         <p className="text-center text-xs text-gray-400 mt-4">
           By submitting, you agree to be contacted by {BUSINESS_NAME}.
+        </p>
+        <p className="text-center text-xs text-gray-400 mt-2">
+          Need to <a href="/?cancel=1" className="text-teal-500 hover:underline">cancel or reschedule</a>?
         </p>
         <p className="text-center text-xs text-gray-300 mt-2">
           Powered by <span className="font-medium text-teal-400">Kardama</span>
