@@ -134,6 +134,10 @@ function Step1({ form, set }) {
   )
 }
 
+// All slot times in 24h format — must stay in sync with SLOT_TIMES_24H in /api/availability
+const ALL_SLOTS_24H = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00']
+const API_BASE = 'https://kardama-ai.vercel.app'
+
 function Step2({ form, set, setFormState }) {
   const today = startOfDay(new Date())
   const minDate = new Date(today); minDate.setDate(minDate.getDate() + 1)
@@ -141,12 +145,15 @@ function Step2({ form, set, setFormState }) {
   const initial = form.start_date ? parseDate(form.start_date) : minDate
   const [view, setView] = useState({ year: initial.getFullYear(), month: initial.getMonth() })
   const [bookedTimes, setBookedTimes] = useState([])
+  // Dates where every slot is booked — shown grayed on the calendar
+  const [fullyBookedDates, setFullyBookedDates] = useState(new Set())
 
   const grid = buildMonthGrid(view.year, view.month)
   const selectedTime = form.preferred_arrival_times[0] || ''
   const durationMin = HOME_SIZE_DURATION_MIN[form.home_size]
   const showSchedule = !!durationMin
 
+  // Fetch per-slot availability when a date is selected
   useEffect(() => {
     if (!form.start_date || !durationMin) { setBookedTimes([]); return }
     supabase.rpc('get_booked_slots', {
@@ -156,6 +163,22 @@ function Step2({ form, set, setFormState }) {
       .then(({ data }) => setBookedTimes(Array.isArray(data) ? data : []))
       .catch(() => setBookedTimes([]))
   }, [form.start_date, durationMin])
+
+  // Fetch month-level availability so fully-booked dates are grayed on the calendar
+  useEffect(() => {
+    const from = fmtDate(new Date(view.year, view.month, 1))
+    const to   = fmtDate(new Date(view.year, view.month + 1, 0))
+    fetch(`${API_BASE}/api/availability?from=${from}&to=${to}`)
+      .then(r => r.ok ? r.json() : { bookedSlots: {} })
+      .then(({ bookedSlots = {} }) => {
+        const full = new Set()
+        for (const [date, times] of Object.entries(bookedSlots)) {
+          if (ALL_SLOTS_24H.every(s => times.includes(s))) full.add(date)
+        }
+        setFullyBookedDates(full)
+      })
+      .catch(() => {})
+  }, [view.year, view.month])
 
   // Clear selected time if the day just became fully booked
   useEffect(() => {
@@ -261,19 +284,24 @@ function Step2({ form, set, setFormState }) {
           <div className="grid grid-cols-7 gap-1">
             {grid.map((d, i) => {
               if (!d) return <div key={i} />
-              const past = startOfDay(d) < minDate
-              const sel = fmtDate(d) === form.start_date
+              const isPast   = startOfDay(d) < minDate
+              const isFull   = fullyBookedDates.has(fmtDate(d))
+              const disabled = isPast || isFull
+              const sel      = fmtDate(d) === form.start_date
               return (
                 <button
                   key={i}
                   type="button"
-                  onClick={() => !past && selectDate(d)}
-                  disabled={past}
+                  onClick={() => !disabled && selectDate(d)}
+                  disabled={disabled}
+                  title={isFull ? 'Fully booked' : undefined}
                   className={`aspect-square rounded-full text-sm font-medium transition-all ${
                     sel
                       ? 'bg-teal-500 text-white shadow-sm'
-                      : past
+                      : isPast
                       ? 'text-gray-300 cursor-not-allowed'
+                      : isFull
+                      ? 'text-gray-300 cursor-not-allowed line-through decoration-gray-300'
                       : 'text-gray-700 hover:bg-teal-50'
                   }`}
                 >
@@ -302,15 +330,22 @@ function Step2({ form, set, setFormState }) {
                   type="button"
                   onClick={() => !booked && selectTime(t)}
                   disabled={booked}
-                  className={`py-3 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                  className={`py-3 px-4 rounded-xl text-sm font-medium border-2 transition-all ${
                     booked
-                      ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                      ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed pointer-events-none select-none'
                       : selectedTime === t
                       ? 'bg-teal-500 text-white border-teal-500 shadow-sm'
-                      : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400 active:scale-95'
                   }`}
                 >
-                  {booked ? `${t} · Full` : `${t} → ${addMinutes(t, durationMin)}`}
+                  {booked ? (
+                    <span className="flex flex-col items-center gap-0.5">
+                      <span className="line-through text-gray-300">{t}</span>
+                      <span className="text-[11px] text-gray-300 not-italic">Unavailable</span>
+                    </span>
+                  ) : (
+                    `${t} → ${addMinutes(t, durationMin)}`
+                  )}
                 </button>
               )
             })}
