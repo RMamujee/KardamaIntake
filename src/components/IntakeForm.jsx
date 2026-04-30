@@ -26,13 +26,6 @@ const STORAGE_KEY = 'kardama_intake_draft'
 
 const TIMES = ['8:00am', '9:00am', '10:00am', '11:00am', '1:00pm', '2:00pm']
 
-const SERVICE_TYPES = [
-  { value: 'standard',          label: 'Standard Clean',   desc: 'Regular home cleaning' },
-  { value: 'deep',              label: 'Deep Clean',        desc: 'Thorough top-to-bottom' },
-  { value: 'move-out',          label: 'Move-Out Clean',    desc: 'Full empty-home clean' },
-  { value: 'airbnb',            label: 'Airbnb Turnover',   desc: 'Quick guest-ready reset' },
-]
-
 const addMinutes = (timeStr, mins) => {
   const [, timePart, period] = timeStr.match(/^(\d+:\d+)(am|pm)$/)
   let [h, m] = timePart.split(':').map(Number)
@@ -85,7 +78,6 @@ const BLANK_FORM = {
   full_name: '',
   email: '',
   phone: '',
-  service_type: '',
   start_date: '',
   preferred_days: [],
   preferred_arrival_times: [],
@@ -136,27 +128,6 @@ function Step1({ form, set }) {
           placeholder="(555) 000-0000"
           className={input}
         />
-      </div>
-
-      <div>
-        <label className={label}>Type of Cleaning *</label>
-        <div className="grid grid-cols-2 gap-2">
-          {SERVICE_TYPES.map(s => (
-            <button
-              key={s.value}
-              type="button"
-              onClick={() => set('service_type', s.value)}
-              className={`py-3 px-3 rounded-xl text-left transition-all border-2 ${
-                form.service_type === s.value
-                  ? 'bg-teal-500 text-white border-teal-500 shadow-sm'
-                  : 'bg-white text-gray-700 border-gray-200 hover:border-teal-400'
-              }`}
-            >
-              <div className="text-sm font-medium">{s.label}</div>
-              <div className={`text-xs mt-0.5 ${form.service_type === s.value ? 'text-teal-100' : 'text-gray-400'}`}>{s.desc}</div>
-            </button>
-          ))}
-        </div>
       </div>
 
     </div>
@@ -549,7 +520,6 @@ export default function IntakeForm() {
       const _base = _digits.length === 11 && _digits.startsWith('1') ? _digits.slice(1) : _digits
       if (['911', '112', '999', '000', '411', '611', '711', '811'].some(p => _base === p || _base.startsWith(p)))
         return 'Please enter a valid phone number.'
-      if (!form.service_type) return 'Please select a type of cleaning.'
     }
     if (s === 1) {
       if (!form.home_size) return 'Please select your home size.'
@@ -601,7 +571,7 @@ export default function IntakeForm() {
         customer_phone:     form.phone.trim(),
         address:            form.service_address.trim(),
         city,
-        service_type:       form.service_type || 'standard',
+        service_type:       'standard',
         preferred_date:     form.start_date,
         preferred_time:     to24h(rawTime),
         home_size:          form.home_size || null,
