@@ -500,13 +500,15 @@ function Step3({ form, set }) {
 }
 
 export default function IntakeForm() {
-  if (new URLSearchParams(window.location.search).has('cancel'))
+  const _qs = new URLSearchParams(window.location.search)
+  if (_qs.has('manage') || _qs.has('cancel'))
     return <CancelRescheduleForm />
 
   const [step, setStep] = useState(() => {
     try { return Number(localStorage.getItem(STORAGE_KEY + '_step') ?? 0) } catch { return 0 }
   })
   const [submitted, setSubmitted] = useState(false)
+  const [bookingId, setBookingId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -590,20 +592,20 @@ export default function IntakeForm() {
       const city = parts.length >= 3 ? parts[parts.length - 3]?.trim() || null : null
 
       const payload = {
-        customer_name:  form.full_name.trim(),
-        customer_email: form.email.trim(),
-        customer_phone: form.phone.trim(),
-        address:        form.service_address.trim(),
+        customer_name:      form.full_name.trim(),
+        customer_email:     form.email.trim(),
+        customer_phone:     form.phone.trim(),
+        address:            form.service_address.trim(),
         city,
-        service_type:   form.service_type || 'standard',
-        preferred_date: form.start_date,
-        preferred_time: to24h(rawTime),
+        service_type:       form.service_type || 'standard',
+        preferred_date:     form.start_date,
+        preferred_time:     to24h(rawTime),
+        home_size:          form.home_size || null,
+        cleaning_frequency: form.cleaning_frequency || null,
         notes: [
-          form.unit              && `Unit: ${form.unit}`,
-          form.home_size         && `Home size: ${form.home_size}`,
-          form.cleaning_frequency && `Frequency: ${form.cleaning_frequency}`,
+          form.unit               && `Unit: ${form.unit}`,
           form.has_pets_allergies && `Pets/allergies: ${form.has_pets_allergies}`,
-          form.payment_method    && `Payment: ${form.payment_method}`,
+          form.payment_method     && `Payment: ${form.payment_method}`,
           form.additional_notes,
         ].filter(Boolean).join('\n'),
       }
@@ -616,6 +618,7 @@ export default function IntakeForm() {
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || 'Something went wrong.')
 
+      setBookingId(data?.id || null)
       try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STORAGE_KEY + '_step') } catch {}
       setSubmitted(true)
     } catch (e) {
@@ -626,7 +629,7 @@ export default function IntakeForm() {
     }
   }
 
-  if (submitted) return <SuccessScreen name={form.full_name} businessName={BUSINESS_NAME} />
+  if (submitted) return <SuccessScreen name={form.full_name} businessName={BUSINESS_NAME} bookingId={bookingId} />
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 flex items-center justify-center p-3 sm:p-4">
