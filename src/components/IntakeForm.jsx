@@ -21,7 +21,14 @@ function loadMapsApi() {
 
 const MOCK = false
 
-const BUSINESS_NAME = 'Kardama Cleaning'
+// Allow embedders to override the displayed business name via ?brand=… query param.
+// "Powered by Kardama" still shows in the footer regardless.
+const BRAND_NAMES = {
+  homemaidnew: 'Home Maid New',
+  kardama:     'Kardama Cleaning',
+}
+const _brandParam = new URLSearchParams(window.location.search).get('brand')?.toLowerCase()
+const BUSINESS_NAME = BRAND_NAMES[_brandParam] || 'Kardama Cleaning'
 const STORAGE_KEY = 'kardama_intake_draft'
 
 const TIMES = ['8:00am', '9:00am', '10:00am', '11:00am', '1:00pm', '2:00pm']
