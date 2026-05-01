@@ -517,6 +517,7 @@ export default function IntakeForm() {
   const [bookingId, setBookingId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const submittingRef = useRef(false)
 
   const [form, setFormState] = useState(() => {
     try {
@@ -581,6 +582,8 @@ export default function IntakeForm() {
   const handleSubmit = async () => {
     const err = validate(2)
     if (err) { setError(err); return }
+    if (submittingRef.current) return
+    submittingRef.current = true
     setError('')
     setLoading(true)
     try {
@@ -635,6 +638,7 @@ export default function IntakeForm() {
       setError((e instanceof Error ? e.message : null) || 'Something went wrong. Please try again or contact us directly.')
     } finally {
       setLoading(false)
+      submittingRef.current = false
     }
   }
 

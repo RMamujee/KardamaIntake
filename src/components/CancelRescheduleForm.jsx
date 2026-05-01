@@ -329,9 +329,9 @@ export default function CancelRescheduleForm() {
               className="w-full py-3 px-4 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 active:scale-95 transition-all shadow-sm">
               Reschedule
             </button>
-            <button onClick={handleCancel} disabled={submitting}
+            <button onClick={() => setView('confirming-cancel')} disabled={submitting}
               className="w-full py-3 px-4 border-2 border-red-200 text-red-500 rounded-xl font-medium hover:bg-red-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
-              {submitting ? 'Cancelling…' : 'Cancel Booking'}
+              Cancel Booking
             </button>
           </div>
         )}
