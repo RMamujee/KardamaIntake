@@ -96,6 +96,23 @@ const BLANK_FORM = {
   has_pets_allergies: '',
   additional_notes: '',
   payment_method: '',
+  property_data: null,
+}
+
+// Calls the lookup-property Supabase edge function to enrich the address
+// with RentCast data (bedrooms, sq ft, etc.). Fails silently — the form
+// must continue to submit even when the API key is unset or RentCast errors.
+async function fetchPropertyData(address) {
+  if (!supabase) return null
+  try {
+    const { data, error } = await supabase.functions.invoke('lookup-property', {
+      body: { address },
+    })
+    if (error) return null
+    return data?.data || null
+  } catch {
+    return null
+  }
 }
 
 const input = "w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition-all text-gray-800 placeholder-gray-400 bg-white"
@@ -365,7 +382,7 @@ function Step2({ form, set, setFormState }) {
   )
 }
 
-function AddressInput({ value, onChange, className, placeholder }) {
+function AddressInput({ value, onChange, onPick, className, placeholder }) {
   const [suggestions, setSuggestions] = useState([])
   const [ready, setReady] = useState(false)
   const svcRef = useRef(null)
@@ -397,6 +414,7 @@ function AddressInput({ value, onChange, className, placeholder }) {
   const pick = (pred) => {
     onChange(pred.description)
     setSuggestions([])
+    onPick?.(pred.description)
   }
 
   return (
@@ -431,7 +449,21 @@ function AddressInput({ value, onChange, className, placeholder }) {
   )
 }
 
-function Step3({ form, set }) {
+function Step3({ form, set, setFormState }) {
+  // When the customer commits to an address (picks from autocomplete),
+  // enrich it with RentCast property data in the background. The result
+  // is stored on the form and submitted with the booking. No-op until
+  // RENTCAST_API_KEY is set on the edge function.
+  const handleAddressPick = (address) => {
+    setFormState(f => ({ ...f, property_data: null }))
+    fetchPropertyData(address).then(data => {
+      if (!data) return
+      setFormState(f => (
+        f.service_address === address ? { ...f, property_data: data } : f
+      ))
+    })
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -439,6 +471,7 @@ function Step3({ form, set }) {
         <AddressInput
           value={form.service_address}
           onChange={val => set('service_address', val)}
+          onPick={handleAddressPick}
           placeholder="123 Main St, Chicago, IL 60601"
           className={input}
         />
@@ -610,6 +643,13 @@ export default function IntakeForm() {
       const parts = form.service_address.split(',')
       const city = parts.length >= 3 ? parts[parts.length - 3]?.trim() || null : null
 
+      // Best-effort: fetch property data now if we missed it during typing
+      // (e.g. user pasted an address instead of picking from autocomplete).
+      let propertyData = form.property_data
+      if (!propertyData && form.service_address) {
+        propertyData = await fetchPropertyData(form.service_address.trim())
+      }
+
       const payload = {
         customer_name:      form.full_name.trim(),
         customer_email:     form.email.trim(),
@@ -621,6 +661,7 @@ export default function IntakeForm() {
         preferred_time:     to24h(rawTime),
         home_size:          form.home_size || null,
         cleaning_frequency: form.cleaning_frequency || null,
+        property_data:      propertyData,
         notes: [
           form.unit               && `Unit: ${form.unit}`,
           form.has_pets_allergies && `Pets/allergies: ${form.has_pets_allergies}`,
@@ -702,7 +743,7 @@ export default function IntakeForm() {
 
           {step === 0 && <Step1 form={form} set={set} />}
           {step === 1 && <Step2 form={form} set={set} setFormState={setFormState} />}
-          {step === 2 && <Step3 form={form} set={set} />}
+          {step === 2 && <Step3 form={form} set={set} setFormState={setFormState} />}
 
           <div className="flex gap-3 mt-8">
             {step > 0 && (

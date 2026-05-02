@@ -20,6 +20,7 @@ interface FormData {
   has_pets_allergies?: string
   additional_notes?: string
   payment_method?: string
+  property_data?: unknown
 }
 
 const HOME_SIZE_DURATION_MIN: Record<string, number> = {
@@ -78,6 +79,7 @@ Deno.serve(async (req) => {
         has_pets_allergies: form.has_pets_allergies || null,
         notes: form.additional_notes || '',
         payment_method: form.payment_method || null,
+        property_data: form.property_data ?? null,
         source: 'intake-form',
       })
 
